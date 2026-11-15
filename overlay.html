@@ -308,7 +308,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
 
 3. EVENTOS REALES, CONTADOR Y TURBO
  - Contador de taps (ponderado): miembro 1, comentario 10, like 1 por me gusta, seguir 3, compartir 5. Todo evento real que no es regalo va SOLO al contador; los eventos reales no avanzan la pista directamente.
- - Limite de taps: inicia y nunca supera 50 (HEART_START/HEART_MAX); la audiencia no afecta el limite.
+ - Limite automatico de taps: inicia en 50 y nunca supera 60 (HEART_START/HEART_MAX); los controles manuales pueden superarlo.
  - Al completar el limite se activa el turbo del contador durante 7 s (HEART_TURBO_MS), sin salto inmediato.
  - Regalo real (independiente del contador, por cada unidad): +10% inmediato y turbo de 15 s (GIFT_TURBO_MS) cuyo avance total se configura en el servidor (6% por defecto). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
  - Eventos sin equipo asignado: van al carril seleccionado. Un comentario que nombra un equipo que no corre ademas le suma 1 voto.
@@ -769,14 +769,14 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
    return hash%teamCount;
   }});
  }
- P.HEART_START=P.HEART_START||50;P.HEART_STEP=P.HEART_STEP||10;P.HEART_MAX=P.HEART_MAX||50;
+ P.HEART_START=P.HEART_START||50;P.HEART_STEP=P.HEART_STEP||10;P.HEART_MAX=P.HEART_MAX||60;
  P.isInteractionEvent=P.isInteractionEvent||function(t){return['chat','like','gift','follow','share'].indexOf(t)>=0};
  P.tapEventDelta=P.tapEventDelta||function(t,n){var w={member:1,chat:10,like:1,follow:3,share:5}[t]||0,c=+n;return w?w*(isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
  P.statEventDelta=P.statEventDelta||function(t,n){var w={member:1,chat:5,like:1,follow:3,share:3,gift:10}[t]||0,c=+n;return w?w*((t==='gift'||t==='like')&&isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
  P.eventCountDelta=P.eventCountDelta||function(t,n){if(['member','chat','gift','like','follow','share'].indexOf(t)<0)return 0;var c=+n;return t==='gift'||t==='like'?(isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):1};
  P.consumeTapCount=P.consumeTapCount||function(c,a,l){l=Math.floor(+l);if(!isFinite(l)||l<1)return{remaining:0,activations:0};var total=Math.max(0,Math.floor(+c||0))+Math.max(0,Math.floor(+a||0));return{remaining:total%l,activations:Math.floor(total/l)}};
- P.consumeTapCountWithNextLimit=P.consumeTapCountWithNextLimit||function(c,a,l){l=Math.min(P.HEART_MAX,Math.floor(+l));if(!Number.isSafeInteger(l)||l<1)return{remaining:0,activations:0,nextLimit:l};var total=Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,Math.floor(+c||0))+Math.max(0,Math.floor(+a||0)));if(total<l)return{remaining:total,activations:0,nextLimit:l};var r=total-l,n=Math.min(P.HEART_MAX,l+10);if(n===l)return{remaining:r%l,activations:1+Math.floor(r/l),nextLimit:l};var lo=0,hi=Math.ceil(Math.sqrt(r/5))+1;while(lo<hi){var mid=Math.ceil((lo+hi)/2),cost=mid*(n+(mid-1)*5);if(cost<=r)lo=mid;else hi=mid-1}var used=lo*(n+(lo-1)*5);return{remaining:r-used,activations:1+lo,nextLimit:Math.min(P.HEART_MAX,n+lo*10)}};
- P.nextTapLimit=P.nextTapLimit||function(current){var limit=Math.floor(Number(current));if(!Number.isSafeInteger(limit)||limit<1)return P.HEART_START;return Math.min(P.HEART_MAX,limit+10)};
+ P.consumeTapCountWithNextLimit=P.consumeTapCountWithNextLimit||function(c,a,l){l=Math.floor(+l);if(!Number.isSafeInteger(l)||l<1)return{remaining:0,activations:0,nextLimit:l};var total=Math.min(Number.MAX_SAFE_INTEGER,Math.max(0,Math.floor(+c||0))+Math.max(0,Math.floor(+a||0)));if(total<l)return{remaining:total,activations:0,nextLimit:l};var r=total-l,n=Math.min(P.HEART_MAX,l+10);if(n<=l)return{remaining:r%l,activations:1+Math.floor(r/l),nextLimit:l};var lo=0,hi=Math.ceil(Math.sqrt(r/5))+1;while(lo<hi){var mid=Math.ceil((lo+hi)/2),cost=mid*(n+(mid-1)*5);if(cost<=r)lo=mid;else hi=mid-1}var used=lo*(n+(lo-1)*5);return{remaining:r-used,activations:1+lo,nextLimit:Math.max(l,Math.min(P.HEART_MAX,n+lo*10))}};
+ P.nextTapLimit=P.nextTapLimit||function(current){var limit=Math.floor(Number(current));if(!Number.isSafeInteger(limit)||limit<1)return P.HEART_START;return Math.max(limit,Math.min(P.HEART_MAX,limit+10))};
  P.giftProgress=P.giftProgress||function(n,p){return Math.max(0,+n||0)*Math.max(0,+p||0)};
  P.giftTurboDuration=P.giftTurboDuration||function(n,d){return Math.max(0,Math.floor(+n||0))*Math.max(0,+d||0)};
  P.tapLimitStep=P.tapLimitStep||function(){return 0};
@@ -935,15 +935,9 @@ const CLASSICS_POOL={ /* CLASICOS: clubes que no estaban en otros pools. Boca, R
 const TOURNAMENT_MODES=['libre','clasico','libertadores','champions','countries','america','elite'];
 const TOURNAMENT_OPTIONS=TOURNAMENT_MODES.slice();
 const TOURNAMENT_LABELS={libre:'TORNEO LIBRE',get clasico(){const f=CLASSIC_FIXTURES[classicFixtureIndex]||CLASSIC_FIXTURES[0],a=tournamentItem(f[0]),b=tournamentItem(f[1]);return (CLASSIC_NAMES[classicFixtureIndex]||'CLÁSICO')+' · '+(a?a.n:'')+' VS '+(b?b.n:'')},libertadores:'LIBERTADORES',champions:'CHAMPIONS',countries:'COPA DEL MUNDO',america:'COPA AMÉRICA',elite:'ELITE NATIONS CUP'};
-/* CLASICOS: cada partido es SIEMPRE contra su rival. Serie al MEJOR DE 3 (gana quien llegue a 2; maximo 3 partidos). [id1,id2,nombre del clasico] */
+/* CLASICOS en rotacion. Serie al MEJOR DE 3 (gana quien llegue a 2; maximo 3 partidos). [id1,id2,nombre del clasico] */
 const CLASSIC_DEFS=[
- ['ol','cp','SUPERCLÁSICO PARAGUAYO'],['ucl-bc','ucl-rm','EL CLÁSICO'],
- ['lib-boc','lib-riv','EL SUPERCLÁSICO'],['cl-cel','cl-ran','THE OLD FIRM'],['ucl-milan','cl-int','DERBY DELLA MADONNINA'],
- ['ucl-lv','cl-mu','DERBI DEL NOROESTE'],['cl-nau','lib-pen','CLÁSICO URUGUAYO'],['cl-fen','cl-gal','DERBI INTERCONTINENTAL'],
- ['cl-ahl','cl-zam','DERBI DE EL CAIRO'],['cl-ame','cl-chi','CLÁSICO NACIONAL'],['lib-fla','cl-flu','FLA-FLU'],
- ['cl-gre','cl-sci','GRENAL'],['cl-aja','cl-fey','DE KLASSIEKER'],['cl-crv','cl-par','DERBI ETERNO'],
- ['ct-ar','ct-br','SUPERCLÁSICO DE LAS AMÉRICAS'],['ct-ar','ct-uy','CLÁSICO DEL RÍO DE LA PLATA'],['ct-en','ct-sc','CLÁSICO BRITÁNICO'],
- ['ct-ar','ct-en','CLÁSICO INTERCONTINENTAL'],['ct-de','ct-nl','CLÁSICO EUROPEO'],['ct-de','ct-it','CLÁSICO EUROPEO']
+ ['ol','cp','SUPERCLÁSICO PARAGUAYO'],['ucl-bc','ucl-rm','EL CLÁSICO']
 ];
 const CLASSIC_FIXTURES=CLASSIC_DEFS.map(d=>[d[0],d[1]]);
 const CLASSIC_NAMES=CLASSIC_DEFS.map(d=>d[2]);
@@ -1288,7 +1282,7 @@ function laneSVG(i,t){
  }).join('');
  const routeGuides=Array.from({length:100},(_,index)=>{
   const meters=index+1,y=536-meters*4.7,major=meters%10===0;
-  return `<line class="route-guide${major?' route-guide-major':''}" data-meter="${meters}" x1="18" y1="${y}" x2="109" y2="${y}" stroke="#f1e8d6" stroke-width="${major?.7:.35}" opacity="${major?.25:.12}"/>`;
+  return `<line class="route-guide${major?' route-guide-major':''}" data-meter="${meters}" x1="18" y1="${y}" x2="109" y2="${y}" stroke="#fff" stroke-width="${major?.7:.35}" opacity=".3"/>`;
  }).join('');
  return `<svg viewBox="0 0 120 588" preserveAspectRatio="none" role="img" aria-label="Ruta ${t.n} con relieve"><defs>
 <filter id="m${i}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".018 .05" numOctaves="4" seed="${i+1}"/><feColorMatrix values="0 0 0 0 .52 0 0 0 0 .46 0 0 0 0 .4 2.4 0 0 0 -.95"/></filter>
@@ -1871,8 +1865,8 @@ T.forEach((t,i)=>$('#sv'+i).insertAdjacentHTML('beforeend','<div class="nest" id
 
  fanPool    = usuarios del JSON (HINCHAS_JSON + /api/recent-users): se muestran al frente SOLO mientras el equipo no tenga eventos reales. */
 const HINCHAS_JSON=[ /* editar aqui. Formato: {username:'maria_ol', avatar:'https://...jpg', team:'ol'}  (team opcional: 'ol' o 'cp'; avatar debe ser https) */ ];
-/* ===== CONTADOR TAP TAP: inicia en 50 y sube 10 por cada 10% de avance ===== */
-/* LIMITE DE TAPS: arranca en 50 y nunca supera 50. */
+/* ===== CONTADOR TAP TAP: inicia en 50 y sube 10 por cada 10% de avance, hasta 60 ===== */
+/* El máximo automático es 60; los controles manuales pueden superarlo. */
 const HEART_START=TAP_POLICY.HEART_START,HEART_STEP=TAP_POLICY.HEART_STEP,HEART_MAX=TAP_POLICY.HEART_MAX;
 const heartBase=()=>{let mx=0;try{mx=Math.max(0,...S.map(s=>+s.p||0))}catch(e){}return Math.min(HEART_MAX,HEART_START+HEART_STEP*Math.floor(Math.min(100,mx)/10))};
 let HEART_N=HEART_START,heartLimitOffset=0;
@@ -1887,7 +1881,7 @@ function setLiveTurboSettings(giftProgress,tapProgress){
 }
 window.setLiveTurboSettings=setLiveTurboSettings;
 function syncHeartLimit(){
- const n=Math.max(10,Math.min(HEART_MAX,heartBase()+heartLimitOffset));
+ const n=Math.max(10,Math.min(Number.MAX_SAFE_INTEGER,heartBase()+heartLimitOffset));
  if(n===HEART_N)return;
  const prevN=HEART_N;HEART_N=n;
  T.forEach((_,i)=>renderHeart(i));
@@ -1930,7 +1924,7 @@ window.recordLiveTap=(team,count)=>heartAdd(team,count);
 /* ➕ ➖ ajustan temporalmente el limite durante esta carrera. */
 function setTurboLimit(d){
  const previous=HEART_N;
- heartLimitOffset=Math.max(10-heartBase(),Math.min(HEART_MAX-heartBase(),heartLimitOffset+d));
+ heartLimitOffset=Math.max(10-heartBase(),Math.min(Number.MAX_SAFE_INTEGER-heartBase(),heartLimitOffset+d));
  syncHeartLimit();
  const n=HEART_N;
  if(previous===n){toast('Límite de turbo: '+HEART_N+' taps ('+(d<0?'mínimo':'máximo')+')','⚡');return}
@@ -3645,7 +3639,7 @@ setInterval(()=>{try{if(over||document.hidden)return;let best=null;pts.forEach((
 #giftCounter:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #honor .hh{margin-bottom:3px;color:#ffe14d;font:900 10px/1 Inter,sans-serif;text-shadow:0 1px 2px #000}
 #honor .hn-view{display:flex;min-height:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;overflow:hidden}
-#honor .hn-flower{display:block;width:20px;height:20px;font:16px/20px Inter,sans-serif}
+#honor .hn-flower{display:block;width:24px;height:24px;font:20px/24px Inter,sans-serif;transform:translateY(3px)}
 #honor .hn-aura{position:relative;width:56px;height:56px;display:grid;place-items:center}
 #honor .hn-aura:before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 0deg,transparent,#ffe14d,#ff7896,transparent);animation:hnSpin 3.4s linear infinite;-webkit-mask:radial-gradient(circle,transparent 52%,#000 54%);mask:radial-gradient(circle,transparent 52%,#000 54%)}
 @keyframes hnSpin{to{transform:rotate(360deg)}}
@@ -4457,7 +4451,7 @@ render();
  race.append(raceIcon,raceTx);
  const raceGroup=document.createElement('div');raceGroup.className='race-clock-group';
  const buttons=document.createElement('div');buttons.className='race-loop-buttons';
- const loopButton=document.createElement('button');loopButton.id='paraguayVsLoop';loopButton.type='button';loopButton.textContent='🇵🇾';loopButton.title='Bucle del Superclásico paraguayo';loopButton.setAttribute('aria-label','Bucle del Superclásico paraguayo');
+ const loopButton=document.createElement('button');loopButton.id='paraguayVsLoop';loopButton.type='button';loopButton.textContent='🇵🇾';loopButton.title='Alternar Olimpia-Cerro y Barcelona-Real Madrid';loopButton.setAttribute('aria-label','Alternar entre el Superclásico paraguayo y El Clásico');
  const giftToggle=document.createElement('button');giftToggle.id='honorGiftToggle';giftToggle.type='button';giftToggle.textContent='⚽';giftToggle.title='Mostrar regalos de Honor';giftToggle.setAttribute('aria-label','Mostrar regalos de Honor');
  const switchUserButton=document.createElement('button');switchUserButton.id='switchTikTokUser';switchUserButton.type='button';switchUserButton.textContent='👤';switchUserButton.title='Cambiar al siguiente usuario guardado';switchUserButton.setAttribute('aria-label','Cambiar al siguiente usuario guardado');
  const tortuToggle=document.createElement('button');tortuToggle.id='donTortuOverlayToggle';tortuToggle.type='button';tortuToggle.textContent='🐢';
@@ -5204,7 +5198,7 @@ function track(e){
  PTS.forEach(([n,i,l])=>{if(tot>=n&&!u.hitos.has(n)){u.hitos.add(n);say(Object.assign({},base,{icon:i,a:l,b:'@'+who_.name,snd:'champ'}))}});
 }
 const _rx=M.receive;
-if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);safe(()=>track(e));return r};
+if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);const entry=e&&e.entry&&typeof e.entry==='object'?e.entry:e;safe(()=>track(entry));return r};
 /* ---- fin de ronda: racha del club, ronda mas rapida y MVP ---- */
 const _cr=M.completeRound;
 if(typeof _cr==='function')M.completeRound=function(winner){
@@ -5576,7 +5570,7 @@ function onEvent(e){
  if(n-(lastAct.get(k)||0)<(L.coalesceMs||0))return;lastAct.set(k,n); /* varios likes seguidos = un solo agradecimiento */
  if(L.say&&L.say[t])say('action',fill(L.say[t],{user}));
 }
-const _rx=M.receive;if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);safe(()=>onEvent(e));return r};
+const _rx=M.receive;if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);const entry=e&&e.entry&&typeof e.entry==='object'?e.entry:e;safe(()=>onEvent(entry));return r};
 /* 5) Como va el partido, en METROS (1 punto de pista = 1 metro; meta = 100) */
 const nm=i=>{const n=String(safe(()=>T[i].n)||'');return n?n[0]+n.slice(1).toLowerCase():''};
 const mts=i=>{
@@ -5603,7 +5597,7 @@ if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(t
 window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues};
 })();
 </script>
-<!-- ===== v19: ROTACION DE VS, LISTA EN EL BACK Y MOTOR DE ESTADISTICAS POR VS. Cada VS se repite en bucle mientras haya interaccion; al llegar a cero avanza por populares y un no popular en rotacion. Todo se guarda en cluss.vs. Boton 🆚 = panel. ===== -->
+<!-- ===== v19: ROTACION DE LOS DOS CLASICOS, LISTA EN EL BACK Y MOTOR DE ESTADISTICAS POR VS. Olimpia-Cerro y Barcelona-Real Madrid se alternan al llegar a cero. Todo se guarda en cluss.vs. Boton 🆚 = panel. ===== -->
 <style id="vs-motor">
 #vsp{position:absolute;inset:6px;z-index:60;display:none;flex-direction:column;box-sizing:border-box;border-radius:12px;border:2px solid #ffd34d;background:linear-gradient(#2a1a0a,#120a03);color:#fff;font:700 12px/1.25 Inter,sans-serif;box-shadow:0 0 0 3px rgba(0,0,0,.6),0 10px 30px rgba(0,0,0,.7)}
 #vsp.on{display:flex}
@@ -5629,7 +5623,7 @@ const safe=f=>{try{return f()}catch(e){return undefined}};
 const M=window.liveEventMonitor;
 if(!M||!safe(()=>CLASSIC_DEFS)||!safe(()=>SRV)||!safe(()=>T)||!safe(()=>P))return;
 const K='cluss.vs',key=(a,b)=>[a,b].sort().join('|');
-const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=6,PREVIOUS_CONFIG_VERSION=5,LEGACY_CONFIG_VERSION=4;
+const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=7,PREVIOUS_CONFIG_VERSION=6,LEGACY_CONFIG_VERSION=5,OLDER_CONFIG_VERSION=4;
 const nmOf=id=>{const n=String(safe(()=>tournamentItem(id).n)||id);return n[0]+n.slice(1).toLowerCase()};
 const DEF=CLASSIC_DEFS.map(d=>({k:key(d[0],d[1]),a:d[0],b:d[1],n:d[2],on:STARTER_KEYS.has(key(d[0],d[1])),popular:STARTER_KEYS.has(key(d[0],d[1]))}));
 /* ---------- LISTA + ESTADISTICAS (documento del SERVIDOR: GET/PUT /api/state/cluss.vs) ---------- */
@@ -5637,8 +5631,8 @@ const raw=safe(()=>SRV.get(K,null))||{};
 const hasCurrentConfig=raw.v===CONFIG_VERSION;
 const hasPreviousConfig=raw.v===PREVIOUS_CONFIG_VERSION;
 const hasModernConfig=hasCurrentConfig||hasPreviousConfig;
-const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,3].includes(raw.v)&&Array.isArray(raw.list));
-const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||raw.v===LEGACY_CONFIG_VERSION)&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:raw.loopEnabled!==false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts!==false:true,list:[]};
+const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION,3].includes(raw.v)&&Array.isArray(raw.list));
+const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||[LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION].includes(raw.v))&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:hasCurrentConfig?raw.loopEnabled!==false:false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts!==false:true,list:[]};
 (hasStoredConfig&&Array.isArray(raw.list)?raw.list:[]).forEach(x=>{const d=DEF.find(y=>y.k===x.k);if(d&&!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d,{on:x.on!==false,popular:hasModernConfig?x.popular===true:STARTER_KEYS.has(x.k)}))});
 DEF.forEach(d=>{if(!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d))}); /* VS nuevos al final */
 const save=()=>safe(()=>SRV.set(K,{v:CONFIG_VERSION,cur:D.cur,np:D.np,list:D.list.map(x=>({k:x.k,on:x.on,popular:x.popular})),raceList:D.raceList.map(x=>({k:x.k,played:x.played})),st:D.st,loopEnabled:D.loopEnabled,showHonorGifts:D.showHonorGifts}));
@@ -5646,6 +5640,7 @@ const byKey=k=>D.list.find(x=>x.k===k);
 const en=()=>D.list.filter(x=>x.on);
 const duelKey=()=>key(T[0].id,T[1].id);
 if(!byKey(D.cur)){const here=byKey(duelKey());D.cur=here?here.k:(en()[0]||D.list[0]).k}
+if(D.np&&!byKey(D.np))D.np='';
 if(!hasCurrentConfig)save();
 function rotationList(){
  const popular=D.list.filter(x=>x.on&&x.popular),others=D.list.filter(x=>x.on&&!x.popular);
@@ -5685,7 +5680,7 @@ function onEvent(e){
  const kn=safe(()=>window.__known.get(u)),t=kn&&kn.t,id=safe(()=>T[t].id)||'?'; /* equipo al que el motor asigno el evento */
  R.ev+=1;R.val+=w;R.by[id]=(R.by[id]||0)+w;R.byEvents[id]=(R.byEvents[id]||0)+1;
 }
-const _rx=M.receive;if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);safe(()=>onEvent(e));return r};
+const _rx=M.receive;if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);const entry=e&&e.entry&&typeof e.entry==='object'?e.entry:e;safe(()=>onEvent(entry));return r};
 let idleJump=false;
 const _cr=M.completeRound;
 if(typeof _cr==='function')M.completeRound=function(w){
@@ -5771,7 +5766,8 @@ function updateLoopButton(){
  const button=document.getElementById('paraguayVsLoop');if(!button)return;
  button.classList.toggle('on',D.loopEnabled);
  button.setAttribute('aria-pressed',String(D.loopEnabled));
- button.title=D.loopEnabled?'Bucle del Superclásico paraguayo activo':'Bucle del Superclásico paraguayo desactivado';
+ button.title=D.loopEnabled?'Repetir solo el Superclásico paraguayo':'Rotar entre Olimpia-Cerro y Barcelona-Real Madrid';
+ button.setAttribute('aria-label',button.title);
 }
 function updateGiftButton(){
  const button=document.getElementById('honorGiftToggle');if(!button)return;
@@ -5849,6 +5845,9 @@ schedule();
 </script>
 <style id="alternating-race-sides">
 #lanes.swapped{flex-direction:row-reverse}
+</style>
+<style id="right-sidebar-lowered">
+.side>#honor,.side>#copas,.side>#evs,.side>.foot,.side>#cronoRegalos{transform:translateY(8px)!important}
 </style>
 </body>
 </html>

@@ -11,7 +11,7 @@ test('live event counters count events, not weighted interaction points', () => 
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
   const policy = browser.window.TORTUWORLD_ACTIVITY_POLICY;
-  assert.equal(policy.HEART_MAX, 50);
+  assert.equal(policy.HEART_MAX, 60);
   assert.equal(policy.HEART_START, 50);
   assert.equal(policy.eventCountDelta('chat', 8), 1);
   assert.equal(policy.eventCountDelta('follow', 8), 1);
@@ -21,6 +21,34 @@ test('live event counters count events, not weighted interaction points', () => 
   assert.equal(policy.eventCountDelta('unknown', 3), 0);
   assert.equal(policy.statEventDelta('chat', 8), 5);
   assert.equal(policy.statEventDelta('gift', 3), 30);
+});
+
+test('automatic tap limit stops at 60 while manual adjustments can exceed it', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const baseSource = html.match(/const heartBase=\(\)=>[^\n]+/)?.[0];
+  const syncSource = html.match(/function syncHeartLimit\(\)\{[\s\S]*?\n\}/)?.[0];
+  const manualSource = html.match(/function setTurboLimit\(d\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(baseSource);
+  assert.ok(syncSource);
+  assert.ok(manualSource);
+
+  const context = {};
+  runInNewContext(`
+    const HEART_START=50, HEART_STEP=10, HEART_MAX=60;
+    const S=[{p:100},{p:100}], T=[{},{}], heart=[0,0];
+    let HEART_N=HEART_START, heartLimitOffset=0, over=false;
+    const renderHeart=()=>{}, heartAdd=()=>{}, toast=()=>{};
+    ${baseSource}
+    ${syncSource}
+    ${manualSource}
+    syncHeartLimit();
+    globalThis.automaticLimit=HEART_N;
+    setTurboLimit(10);
+    globalThis.manualLimit=HEART_N;
+  `, context);
+
+  assert.equal(context.automaticLimit, 60);
+  assert.equal(context.manualLimit, 70);
 });
 
 test('idle visual advance waits 15 seconds, alternates teams at two meters per second, and resets per race', () => {
@@ -213,7 +241,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       const event = await receiveEvent();
       assert.equal(event.event, 'update');
       assert.equal(event.payload.entry.type, type);
-      browser.window.liveEventMonitor.receive(event.payload.entry);
+      browser.window.liveEventMonitor.receive(event.payload);
     };
 
     const gift = normalizeTikTokEvent('gift', {
@@ -222,7 +250,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       diamondCount: 1,
       user: { uniqueId: `${id}-gift`, nickname: 'Gift Fan' }
     });
-    browser.window.liveEventMonitor.receive(gift);
+    browser.window.liveEventMonitor.receive({ entry: gift });
     assert.equal(spoken[0]?.text, 'Gracias Gift Fan por enviar 1 Rose. Tu equipo Cerro entra en modo turbo y tu foto queda en el cuadro de honor.');
     assert.equal(spoken[0]?.voice, notificationVoice);
 
@@ -261,9 +289,9 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
     assert.equal(spoken[3]?.voice, commentatorVoice);
 
-    browser.window.liveEventMonitor.receive({
+    browser.window.liveEventMonitor.receive({ entry: {
       type: 'chat', displayName: 'Interrupt Fan', username: 'interrupt-fan', content: 'Hola'
-    });
+    } });
     assert.equal(browser.window.getVoiceMonitorState().currentRole, 'notifications');
     assert.equal(spoken[4]?.voice, notificationVoice);
     spoken[4].onend();
@@ -331,6 +359,8 @@ test('right sidebar places statistics, tools, and chronometer in separate vertic
   assert.equal(clock.parentElement, side);
   assert.equal(foot.children.includes(clock), false);
   assert.equal(topbar.children.length, 0);
+  assert.match(html, /\.side>#honor,\.side>#copas,\.side>#evs,\.side>\.foot,\.side>#cronoRegalos\{transform:translateY\(8px\)!important\}/);
+  assert.doesNotMatch(html, /#donTortuAvatar\{[^}]*transform:translateY/);
 });
 
 test('backend voice setting controls Don Tortu avatar and speech', () => {
@@ -619,13 +649,14 @@ test('backend VS settings default to the two requested fixtures and validate sav
     assert.equal(defaults.status, 200);
     const defaultConfig = await defaults.json();
     const defaultList = defaultConfig.list;
-    assert.equal(defaultList.length, 20);
+    assert.equal(defaultList.length, 2);
     assert.deepEqual(defaultList.filter(item => item.on).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
     assert.deepEqual(defaultList.filter(item => item.popular).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
     assert.deepEqual(defaultConfig.raceList.map(item => [item.k, item.played]), [
       ['cp|ol', false], ['ucl-bc|ucl-rm', false]
     ]);
     assert.ok(defaultConfig.teams.some(team => team.id === 'ct-ar' && team.flag === '🇦🇷'));
+    assert.ok(defaultConfig.teams.some(team => team.id === 'cl-cel' && team.flag === '🟢⚪'));
 
     await fetch(`${baseUrl}/api/state/cluss.vs`, {
       method: 'PUT',
@@ -656,20 +687,20 @@ test('backend VS settings default to the two requested fixtures and validate sav
       method: 'POST',
       headers,
       body: JSON.stringify({
-        enabledKeys: ['ucl-bc|ucl-rm', 'lib-boc|lib-riv'],
-        popularKeys: ['ucl-bc|ucl-rm']
+        enabledKeys: ['cp|ol', 'ucl-bc|ucl-rm'],
+        popularKeys: ['cp|ol', 'ucl-bc|ucl-rm']
       })
     });
     assert.equal(reconfigured.status, 200);
     const refreshed = await fetch(`${baseUrl}/api/admin/vs-config`, { headers });
     assert.deepEqual((await refreshed.json()).raceList.map(item => [item.k, item.played]), [
-      ['ucl-bc|ucl-rm', false], ['lib-boc|lib-riv', false]
+      ['cp|ol', false], ['ucl-bc|ucl-rm', false]
     ]);
 
     const invalid = await fetch(`${baseUrl}/api/admin/vs-config`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ enabledKeys: ['ucl-bc|ucl-rm'], popularKeys: ['not-a-fixture'] })
+      body: JSON.stringify({ enabledKeys: ['lib-boc|lib-riv'], popularKeys: ['ucl-bc|ucl-rm'] })
     });
     assert.equal(invalid.status, 400);
   } finally {
@@ -1004,8 +1035,6 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   const fixtures = [
     ['ol', 'cp', 'Superclásico'],
     ['ucl-bc', 'ucl-rm', 'El Clásico'],
-    ['lib-boc', 'lib-riv', 'Superclásico'],
-    ['cl-cel', 'cl-ran', 'Old Firm'],
   ];
   const listeners = new Map();
   const app = { appendChild() {} };
@@ -1070,11 +1099,11 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   assert.deepEqual(Array.from(vs.data.raceList, item => [item.k, item.played]), [
     ['cp|ol', false], ['ucl-bc|ucl-rm', false]
   ]);
-  assert.equal(vs.data.loopEnabled, true);
+  assert.equal(vs.data.loopEnabled, false);
   assert.equal(vs.data.showHonorGifts, true);
   assert.match(html, /loopButton\.id='paraguayVsLoop'/);
-  assert.match(html, /Bucle del Superclásico paraguayo/);
-  assert.equal(loopButton.classList.active, true);
+  assert.match(html, /Rotar entre Olimpia-Cerro y Barcelona-Real Madrid/);
+  assert.equal(loopButton.classList.active, false);
   assert.equal(giftToggle.classList.active, true);
   const currentKey = vs.data.cur;
   vs.data.loopEnabled = false;
@@ -1120,10 +1149,9 @@ test('overlay retains the active VS until inactivity and resets cups only on the
     return vs.data.cur;
   };
   assert.equal(next(), 'ucl-bc|ucl-rm');
-  assert.equal(next(), 'lib-boc|lib-riv');
   assert.equal(next(), 'cp|ol');
   assert.equal(next(), 'ucl-bc|ucl-rm');
-  assert.equal(next(), 'cl-cel|cl-ran');
+  assert.equal(next(), 'cp|ol');
 
   vs.data.np = 'lib-boc|lib-riv';
   listeners.get('vs-config-update')({ detail: {
@@ -1138,28 +1166,28 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   finishRace(['ol', 'cp'], 'ol');
   assert.equal(vs.data.raceList[0].played, true);
   finishRace(['ucl-bc', 'ucl-rm'], 'ucl-bc');
-  assert.equal(vs.data.cur, 'lib-boc|lib-riv');
-  finishRace(['lib-boc', 'lib-riv'], 'lib-boc');
+  assert.equal(vs.data.cur, 'cp|ol');
   assert.deepEqual(Array.from(vs.data.raceList, item => [item.k, item.played]), [
-    ['cp|ol', false], ['ucl-bc|ucl-rm', false], ['cl-cel|cl-ran', false]
+    ['cp|ol', false], ['ucl-bc|ucl-rm', false]
   ]);
 
   storedConfig = {
-    v: 5,
+    v: 6,
     cur: 'cp|ol',
     np: 'lib-boc|lib-riv',
     list: [{ k: 'cp|ol', on: true, popular: true }],
     raceList: [{ k: 'cp|ol', played: true }],
     st: {},
-    loopEnabled: false,
+    loopEnabled: true,
     showHonorGifts: false,
   };
   savedStates.length = 0;
   runInNewContext(script, context);
   assert.equal(window.gamiVS.data.showHonorGifts, true, 'old saved settings migrate back to visible gift details');
-  assert.equal(window.gamiVS.data.np, 'lib-boc|lib-riv');
+  assert.equal(window.gamiVS.data.np, '');
+  assert.equal(window.gamiVS.data.loopEnabled, false, 'old saved loop mode migrates to the two-classic rotation');
   assert.deepEqual(Array.from(window.gamiVS.data.raceList, item => [item.k, item.played]), [['cp|ol', true]]);
-  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 6 && item.value.showHonorGifts === true));
+  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 7 && item.value.showHonorGifts === true));
 });
 
 test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts local', async () => {
@@ -1280,6 +1308,7 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
   context.window.HonorBoard.setGiftDisplay(false);
   assert.match(honorMarkup, /hn-flower/);
   assert.doesNotMatch(honorMarkup, /hn-aura/);
+  assert.match(html, /#honor \.hn-flower\{[^}]*width:24px;height:24px;font:20px\/24px[^}]*translateY\(3px\)/);
   await Promise.resolve();
   assert.equal(fetchCalls, 1, 'only catalog bootstrap fetches from the server; emulated gifts stay local');
   assert.match(html, /id="giftCounter"/);
@@ -2134,8 +2163,8 @@ test('race lanes alternate sides and draw translucent guides each meter', () => 
   assert.deepEqual(meters, [10, 20, 30, 40, 50, 60, 70, 80, 90]);
   const guides = Array.from(markup.matchAll(/class="route-guide(?: route-guide-major)?" data-meter="(\d+)"/g), match => Number(match[1]));
   assert.deepEqual(guides, Array.from({ length: 100 }, (_, index) => index + 1));
-  assert.match(markup, /route-guide-major" data-meter="10"[^>]+opacity="0\.25"/);
-  assert.match(markup, /route-guide" data-meter="1"[^>]+opacity="0\.12"/);
+  assert.match(markup, /route-guide-major" data-meter="10"[^>]+stroke="#fff"[^>]+opacity="\.3"/);
+  assert.match(markup, /route-guide" data-meter="1"[^>]+stroke="#fff"[^>]+opacity="\.3"/);
   assert.match(html, /classList\.toggle\('swapped'\)/);
   assert.match(html, /#lanes\.swapped\{flex-direction:row-reverse\}/);
 });

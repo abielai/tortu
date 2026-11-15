@@ -81,25 +81,7 @@ const DEFAULT_GIFT_CATALOG = [
 }));
 const DEFAULT_VS = [
   { k: 'cp|ol', label: 'OLIMPIA vs CERRO', on: true, popular: true },
-  { k: 'ucl-bc|ucl-rm', label: 'BARCELONA vs REAL MADRID', on: true, popular: true },
-  { k: 'lib-boc|lib-riv', label: 'BOCA vs RIVER', on: false },
-  { k: 'cl-cel|cl-ran', label: 'CELTIC vs RANGERS', on: false },
-  { k: 'cl-int|ucl-milan', label: 'INTER vs MILAN', on: false },
-  { k: 'cl-mu|ucl-lv', label: 'MANCHESTER UNITED vs LIVERPOOL', on: false },
-  { k: 'cl-nau|lib-pen', label: 'NACIONAL vs PEÑAROL', on: false },
-  { k: 'cl-fen|cl-gal', label: 'FENERBAHÇE vs GALATASARAY', on: false },
-  { k: 'cl-ahl|cl-zam', label: 'AL AHLY vs ZAMALEK', on: false },
-  { k: 'cl-ame|cl-chi', label: 'AMÉRICA vs CHIVAS', on: false },
-  { k: 'cl-flu|lib-fla', label: 'FLUMINENSE vs FLAMENGO', on: false },
-  { k: 'cl-gre|cl-sci', label: 'GRÊMIO vs INTERNACIONAL', on: false },
-  { k: 'cl-aja|cl-fey', label: 'AJAX vs FEYENOORD', on: false },
-  { k: 'cl-crv|cl-par', label: 'ESTRELLA ROJA vs PARTIZÁN', on: false },
-  { k: 'ct-ar|ct-br', label: 'ARGENTINA vs BRASIL', on: false },
-  { k: 'ct-ar|ct-uy', label: 'ARGENTINA vs URUGUAY', on: false },
-  { k: 'ct-en|ct-sc', label: 'INGLATERRA vs ESCOCIA', on: false },
-  { k: 'ct-ar|ct-en', label: 'ARGENTINA vs INGLATERRA', on: false },
-  { k: 'ct-de|ct-nl', label: 'ALEMANIA vs PAÍSES BAJOS', on: false },
-  { k: 'ct-de|ct-it', label: 'ALEMANIA vs ITALIA', on: false }
+  { k: 'ucl-bc|ucl-rm', label: 'BARCELONA vs REAL MADRID', on: true, popular: true }
 ];
 const TEAM_NAMES = {
   ol: 'Olimpia', cp: 'Cerro Porteño', 'ucl-bc': 'Barcelona', 'ucl-rm': 'Real Madrid',
@@ -123,8 +105,8 @@ const TEAM_FLAGS = {
   'ct-ar': '🇦🇷', 'ct-br': '🇧🇷', 'ct-uy': '🇺🇾', 'ct-en': '🏴',
   'ct-sc': '🏴', 'ct-de': '🇩🇪', 'ct-nl': '🇳🇱', 'ct-it': '🇮🇹'
 };
-const DEFAULT_TEAM_CATALOG = [...new Set(DEFAULT_VS.flatMap(item => item.k.split('|')))]
-  .map(id => ({ id, name: TEAM_NAMES[id] || id.toUpperCase(), flag: TEAM_FLAGS[id] || '🏳️' }));
+const DEFAULT_TEAM_CATALOG = Object.keys(TEAM_NAMES)
+  .map(id => ({ id, name: TEAM_NAMES[id], flag: TEAM_FLAGS[id] || '🏳️' }));
 const ALLOWED_STATE_KEY = /^cluss\.(?:v1|torneoLock|lang|crest\.[\w-]+|vs|gifts|honorLastGift|voice|stats|libreVotes|chatArchive|log\.[\w.-]+)$/;
 
 const clients = new Set();
@@ -240,8 +222,8 @@ function vsConfigView(value) {
   }
   return {
     v: DEFAULT_VS_CONFIG_VERSION,
-    cur: compatible && typeof value.cur === 'string' ? value.cur : DEFAULT_VS[0].k,
-    np: (current || value?.v === 4) && typeof value.np === 'string' ? value.np : '',
+    cur: compatible && list.some(item => item.k === value.cur) ? value.cur : DEFAULT_VS[0].k,
+    np: (current || value?.v === 4) && list.some(item => item.k === value.np) ? value.np : '',
     raceList,
     list,
     st: value?.st && typeof value.st === 'object' && !Array.isArray(value.st) ? value.st : {}
@@ -1240,7 +1222,7 @@ input,select{border:1px solid #31435a;background:#0a1220;color:var(--text);paddi
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🐢</span> Torneos · contador de equipos</h2><span class="pill">TORNEOS</span></header><div class="form-row"><label class="field">Avance del turbo por taps (%)<input id="tap" type="number" min="0" max="100" value="20"></label><button class="primary" id="saveTapTurbo">Guardar ajustes de equipos</button><button data-command="turbo-down">Turbo −</button><button data-command="turbo-up">Turbo +</button></div><div class="motor-grid" id="teamTelemetry"><div class="unit-empty">Esperando valores del motor…</div></div></section>
 <section class="panel business-panel" data-units="motor"><header><h2><span class="icon">⚙</span> Motor en tiempo real</h2><span class="pill" id="motorStatus">SIN TELEMETRÍA</span></header><p class="subtle">Valores actuales reportados por el overlay y retransmitidos por el servidor.</p><div class="stats"><article class="stat"><span class="stat-label">Fase</span><strong id="motorPhase">—</strong><small id="motorUpdated">Esperando al overlay</small></article><article class="stat"><span class="stat-label">Duración</span><strong id="motorElapsed">—</strong><small>Tiempo de carrera</small></article><article class="stat"><span class="stat-label">Inactividad</span><strong id="motorIdle">—</strong><small>Cuenta regresiva</small></article></div><p class="subtle">Ganador: <b id="motorWinner">—</b> · Eventos procesados: <b id="motorEvents">0</b></p><div class="motor-grid" id="motorTeams"><div class="unit-empty">El overlay debe estar abierto para publicar telemetría.</div></div><pre class="pre" id="motorStats">Estadísticas del motor: esperando datos…</pre></section>
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos</h2><span class="pill">VOTACIÓN</span></header><label class="checkrow"><input id="tournamentEnabled" type="checkbox"> Registrar votos de comentarios reales</label><div class="toolbar"><button class="primary" id="saveTournament">Guardar configuración</button></div></section>
-<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos · crear lista de carreras</h2><span class="pill">POPULAR Y NO POPULAR</span></header><p class="subtle">Olimpia–Cerro y Barcelona–Real Madrid empiezan habilitados y populares. Se repiten los VS populares y al final se agrega un no popular habilitado. Al completar toda la lista, se carga la siguiente tanda con el próximo no popular. Cada casilla se marca al terminar la carrera por inactividad.</p><div id="vsConfigList" class="vs-config-list"><div class="unit-empty">Cargando VS…</div></div><div class="toolbar"><button class="primary" id="saveVsConfig">Guardar VS y popularidad</button></div><h3>Lista de carreras</h3><div id="raceList" class="race-list"><div class="unit-empty">Cargando lista…</div></div><p class="message" id="vsConfigMessage" role="status"></p></section>
+<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos · crear lista de carreras</h2><span class="pill">DOS CLÁSICOS EN ROTACIÓN</span></header><p class="subtle">Solo se habilitan Olimpia–Cerro y Barcelona–Real Madrid. Ambos son populares y se alternan al terminar cada carrera por inactividad; las demás banderas siguen disponibles en sus torneos.</p><div id="vsConfigList" class="vs-config-list"><div class="unit-empty">Cargando VS…</div></div><div class="toolbar"><button class="primary" id="saveVsConfig">Guardar VS y popularidad</button></div><h3>Lista de carreras</h3><div id="raceList" class="race-list"><div class="unit-empty">Cargando lista…</div></div><p class="message" id="vsConfigMessage" role="status"></p></section>
 <section class="panel business-panel" data-units="estadisticas"><header><h2><span class="icon">📊</span> Estadísticas por país y presencia</h2><span class="pill">LIVE DATA</span></header><pre class="pre" id="countries">Esperando datos…</pre><div class="country-box"><span class="subtle">Estado del overlay</span><pre class="pre" id="presence">Verificando clientes…</pre></div></section>
 <section class="panel business-panel" data-units="voz"><header><h2><span class="icon">♫</span> Voz en off · Narrador</h2><span class="pill">PRIORIDADES EN VIVO</span></header><p class="subtle">Voz alegre, con prioridad más baja primero; los regalos interrumpen mensajes de menor prioridad. Activa o desactiva cada tipo de narración.</p><div class="form-row"><label class="field">No repetir una frase durante (minutos)<input id="voiceCooldownMinutes" type="number" min="1" max="1440" step="1" value="1"></label><button class="primary" id="saveVoiceConfig">Guardar ajustes de voz</button></div><p class="voice-hint" id="voicePhraseRule">Las frases pronunciadas se comparan con el diccionario temporal antes de hablar.</p><ol class="voice-order" id="voiceOrder"></ol><p class="voice-hint">🎁 Cada regalo se agradece con una voz alegre. La narración respeta las prioridades activas y se vacía al terminar cada partido.</p><p class="message" id="voiceError" role="status"></p></section>
 <section class="panel business-panel" data-units="acciones"><header><h2><span class="icon">🛠</span> CTAs / Acciones</h2><span class="pill">OPERADOR</span></header><p class="subtle">Herramientas de operación del live y la sesión.</p><div class="toolbar"><button id="reset">Reiniciar cronómetro y regalos</button><button data-command="refresh">Recargar overlay</button><button id="logout">Cerrar sesión protegida</button></div></section>
