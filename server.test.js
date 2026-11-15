@@ -2096,10 +2096,16 @@ test('overlay keeps its race design and opens monitor tabs matching the backend 
   }
   assert.doesNotMatch(html, /data-tab="narrador"/);
   assert.match(html, /data-tab="usuarios"[^>]*>👤 Usuarios<\/button><button data-tab="voz"[^>]*>♫ Voz/);
-  assert.match(html, /<button class="live connecting" id="connection" type="button"[^>]*>conectando<\/button>/);
-  assert.match(html, /connectionButton\.addEventListener\('click',async\(\)=>/);
-  assert.doesNotMatch(html, /switchUserButton\.id='switchTikTokUser'/);
-  assert.doesNotMatch(html, /switchUserButton\.textContent='👤'/);
+  assert.match(html, /<button class="live connecting" id="connection" type="button"[^>]*aria-haspopup="true"[^>]*aria-controls="footerMenu"/);
+  const footerMenu = html.match(/<div class="foot-menu" id="footerMenu"[\s\S]*?<\/div>/)?.[0];
+  assert.ok(footerMenu);
+  for (const id of ['switchUser', 'voiceToggle', 'bTurboDn', 'bTurboUp', 'bRefresh', 'bMonitor', 'bBackend']) {
+    assert.match(footerMenu, new RegExp(`id="${id}"`));
+  }
+  assert.match(html, /trigger\.addEventListener\('click',\(\)=>setOpen\(menu\.hidden\)\)/);
+  assert.match(html, /menu\.addEventListener\('click',event=>\{if\(event\.target\.closest\('button'\)\)setOpen\(false\)\}\)/);
+  assert.match(html, /switchUserButton\.addEventListener\('click',async\(\)=>/);
+  assert.doesNotMatch(html, /connectionButton\.addEventListener\('click'/);
   assert.match(html, /fetch\('\/api\/connect\/next',\{method:'POST',headers:\{'X-Overlay-Control':'switch-user'\}\}\)/);
   assert.match(server, /path === '\/api\/connect\/next' && req\.method === 'POST'/);
   assert.match(html, /addEventListener\('motor-state'/);

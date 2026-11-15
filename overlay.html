@@ -887,8 +887,8 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
 </div>
 <div class="win" id="win" role="alertdialog" aria-label="Ganador"></div>
 </section>
-<!-- Herramientas visibles: estado de conexión, ajuste del límite de taps y recarga. -->
-<div class="foot"><button class="live connecting" id="connection" type="button" aria-label="Conectando; tocar para cambiar de usuario" aria-live="polite">conectando</button><button class="sm" id="voiceToggle" type="button" aria-pressed="false" aria-label="Desactivar voz" title="Desactivar voz">🔊</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps en 10" title="10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps en 10" title="10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Abrir monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Abrir herramientas del backend">⚙️</button></div>
+<!-- El botón de usuario abre el grupo de herramientas del pie. -->
+<div class="foot"><button class="live connecting" id="connection" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="footerMenu" aria-label="Conectando; abrir herramientas" aria-live="polite">conectando</button><div class="foot-menu" id="footerMenu" role="group" aria-label="Herramientas del overlay" hidden><button class="live" id="switchUser" type="button" aria-label="Cambiar al siguiente usuario">👤 Cambiar usuario</button><button class="sm" id="voiceToggle" type="button" aria-pressed="false" aria-label="Desactivar voz" title="Desactivar voz">🔊</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps en 10" title="10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps en 10" title="10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Abrir monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Abrir herramientas del backend">⚙️</button></div></div>
 <!-- FRANJA DE ESTADISTICAS del live: solo eventos REALES (los bots y los toques manuales no cuentan). -->
 <div class="evs" id="evs" role="status" aria-label="Estadisticas del live"><div class="st" data-k="member" title="Unidos"><b>👥</b><span>0</span></div><div class="st" data-k="chat" title="Comentarios"><b>💬</b><span>0</span></div><div class="st" data-k="like" title="Me gusta"><b>❤️</b><span>0</span></div><div class="st" data-k="follow" title="Seguidores nuevos"><b>➕</b><span>0</span></div><div class="st" data-k="share" title="Compartidos"><b>↗️</b><span>0</span></div></div>
 <button id="giftCounter" class="gift-total st" data-k="gift" type="button" aria-label="Regalos mostrados en esta sesión: 0" title="Regalos mostrados en esta sesión: 0"><span id="giftCount">0</span></button>
@@ -1544,7 +1544,7 @@ function setConnection(status){
  el.classList.toggle('connected',connected);
  el.classList.toggle('connecting',!connected&&status.status==='connecting');
  el.classList.toggle('reconnecting',!connected&&status.status==='reconnecting');
- el.setAttribute('aria-label',(username?stateLabel+' a '+userLabel:stateLabel)+'; tocar para cambiar de usuario');
+ el.setAttribute('aria-label',(username?stateLabel+' a '+userLabel:stateLabel)+'; abrir herramientas del usuario');
 }
 /* Conexion con el backend: eventos reales de TikTok por SSE */
 const receivedEvents=[];
@@ -4561,24 +4561,25 @@ render();
  function tick(){const s=Math.max(0,Math.floor((Date.now()-timerStartedAt)/1000)),t=p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60);if(tx.textContent!==t){tx.textContent=t;c.setAttribute('aria-label','Tiempo activo '+t)}}
  function tickRace(){const s=Math.max(0,Math.floor(window.getRaceElapsedMs()/1000)),t=p(Math.floor(s/60))+':'+p(s%60);if(raceTx.textContent!==t){raceTx.textContent=t;race.setAttribute('aria-label','Duración de la carrera '+t)}}
  tick();tickRace();setInterval(()=>{tick();tickRace()},1000);
- const connectionButton=document.getElementById('connection');
- if(connectionButton)connectionButton.addEventListener('click',async()=>{
-  if(connectionButton.disabled)return;
-  connectionButton.disabled=true;
+ const switchUserButton=document.getElementById('switchUser');
+ if(switchUserButton)switchUserButton.addEventListener('click',async()=>{
+  if(switchUserButton.disabled)return;
+  switchUserButton.disabled=true;
   try{
    const response=await fetch('/api/connect/next',{method:'POST',headers:{'X-Overlay-Control':'switch-user'}});
    const result=await response.json();
    if(!response.ok||result.ok!==true)throw new Error(result.message||`HTTP ${response.status}`);
    const username=String(result.username||'').trim().replace(/^@+/,'');
    if(!username)throw new Error('El backend no devolvió un usuario para conectar.');
+   const connectionButton=document.getElementById('connection');
    connectionButton.textContent='@'+username;
    connectionButton.title='Conectando a @'+username;
-   connectionButton.setAttribute('aria-label',connectionButton.title+'; tocar para cambiar de usuario');
+   connectionButton.setAttribute('aria-label',connectionButton.title+'; abrir herramientas del usuario');
    toast('Conectando a @'+username,'👤');
   }catch(error){
    toast('No se pudo cambiar de usuario: '+error.message,'⚠️');
    console.error('No se pudo cambiar al siguiente usuario guardado.',error);
-  }finally{setTimeout(()=>{connectionButton.disabled=false},1800)}
+  }finally{setTimeout(()=>{switchUserButton.disabled=false},1800)}
  });
  const toolsSource=new EventSource('/api/game-tools/events');
  const overlayClientId=window.crypto&&window.crypto.randomUUID
@@ -5180,10 +5181,14 @@ window.gamiTaps={state:st};
 </script>
 <!-- ===== v13: la fila de herramientas (estado de conexion, ➖ ➕ 🔄 ⚙️ y cronometro) pasa a OTRO cuadro en la columna derecha, debajo de las estadisticas. La barra inferior desaparece y el tablero gana su alto (+38 px de pista). ===== -->
 <style id="herramientas-derecha">
-.side>.foot{order:3;flex:none;box-sizing:border-box;width:100%;margin:0!important;padding:4px 3px!important;display:grid!important;grid-template-columns:repeat(4,1fr);gap:4px 3px!important;align-items:center;overflow:visible!important;
+.side>.foot{order:3;position:relative;flex:none;box-sizing:border-box;width:100%;margin:0!important;padding:4px 3px!important;display:block!important;overflow:visible!important;
  background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .side>.foot>.live{grid-column:1/-1;box-sizing:border-box;width:100%!important;min-width:0!important;max-width:none!important;min-height:20px!important;height:20px;padding:0 4px!important;font-size:10px!important;justify-content:center!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.side>.foot>.sm{box-sizing:border-box;flex:none;width:100%!important;min-width:0!important;max-width:none!important;height:24px!important;padding:0!important;font-size:12px!important;border-width:1px;border-radius:6px;display:flex!important;align-items:center;justify-content:center}
+.side>.foot>.live:after{content:"⌄";margin-left:5px}
+.side>.foot>.foot-menu{position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:30;box-sizing:border-box;padding:5px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.65)}
+.side>.foot>.foot-menu[hidden]{display:none!important}
+.side>.foot>.foot-menu>.live{grid-column:1/-1;box-sizing:border-box;min-width:0;height:24px;padding:0 4px;font-size:10px;justify-content:center}
+.side>.foot>.foot-menu>.sm{box-sizing:border-box;min-width:0;width:100%;height:24px;padding:0;font-size:12px;border-width:1px;border-radius:6px;display:flex;align-items:center;justify-content:center}
 .side>#cronoRegalos{order:4;flex:none;box-sizing:border-box;width:100%;margin:0!important;padding:4px 3px!important;display:flex!important;flex-direction:column;align-items:stretch;justify-content:center;transform:none!important;gap:3px!important;
  background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .side>#cronoRegalos .race-clock-group{width:100%;align-items:stretch}
@@ -5199,6 +5204,17 @@ window.gamiTaps={state:st};
  const clock=document.getElementById('cronoRegalos');if(clock)side.appendChild(clock);
  const tb=document.getElementById('topbar');
  if(tb&&!tb.children.length)tb.remove(); /* sin barra inferior: fit() usa el borde seguro de abajo */
+})();
+</script>
+<script id="footer-menu-js">
+(function(){
+ const trigger=document.getElementById('connection'),menu=document.getElementById('footerMenu'),foot=document.querySelector('.foot');
+ if(!trigger||!menu||!foot)return;
+ const setOpen=open=>{menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open))};
+ trigger.addEventListener('click',()=>setOpen(menu.hidden));
+ menu.addEventListener('click',event=>{if(event.target.closest('button'))setOpen(false)});
+ document.addEventListener('click',event=>{if(!foot.contains(event.target))setOpen(false)});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!menu.hidden){setOpen(false);trigger.focus()}});
 })();
 </script>
 <!-- ===== v14: RETENCION. Logros de hincha, hitos del live, rachas y MVP de ronda. Capa SOLO visual y reactiva (id gami-retencion): no cambia limites, puntos ni carrera; informa de eventos REALES y nunca pide ni promete nada (regla 1). ===== -->
