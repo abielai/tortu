@@ -18,7 +18,7 @@ export default {
       interrupt: true,
       say: 'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'
     },
-    { id: 'chat', priority: 2, ttlMs: 20000, max: 3, maxChars: 140, say: '{user} dice: {text}' },
+    { id: 'chat', priority: 2, ttlMs: 20000, max: 3, maxChars: 140, interrupt: true, say: '{user} dice: {text}' },
     { id: 'welcome', priority: 3, ttlMs: 25000, max: 6, say: 'Bienvenido {user}' },
     {
       id: 'action',

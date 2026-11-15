@@ -11,7 +11,8 @@ test('live event counters count events, not weighted interaction points', () => 
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
   const policy = browser.window.TORTUWORLD_ACTIVITY_POLICY;
-  assert.equal(policy.HEART_MAX, 100);
+  assert.equal(policy.HEART_MAX, 50);
+  assert.equal(policy.HEART_START, 50);
   assert.equal(policy.eventCountDelta('chat', 8), 1);
   assert.equal(policy.eventCountDelta('follow', 8), 1);
   assert.equal(policy.eventCountDelta('share', 8), 1);
@@ -145,12 +146,16 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
   assert.ok(script);
 
   const spoken = [];
+  const intervals = [];
+  const commentatorVoice = { name: 'Commentator ES', lang: 'es-ES' };
+  const notificationVoice = { name: 'Notifications ES', lang: 'es-ES' };
+  let now = Date.now();
   const browser = {
     window: {
       speechSynthesis: {
         speak: utterance => spoken.push(utterance),
         cancel() {},
-        getVoices: () => [],
+        getVoices: () => [commentatorVoice, notificationVoice],
         addEventListener() {}
       },
       liveEventMonitor: { receive(event) { return event; } },
@@ -164,9 +169,10 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     over: false,
     findTeam: text => String(text).includes('Cerro') ? 1 : -1,
     fetch: () => Promise.resolve({ ok: false }),
-    setInterval: () => 0,
+    setInterval: (callback, ms) => { intervals.push({ callback, ms }); return intervals.length; },
     setTimeout,
     clearTimeout,
+    Date: class extends Date { static now() { return now; } },
     addEventListener() {},
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
@@ -218,6 +224,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     });
     browser.window.liveEventMonitor.receive(gift);
     assert.equal(spoken[0]?.text, 'Gracias Gift Fan por enviar 1 Rose. Tu equipo Cerro entra en modo turbo y tu foto queda en el cuadro de honor.');
+    assert.equal(spoken[0]?.voice, notificationVoice);
 
     await emit('chat', {
       comment: 'Cerro vamos todos',
@@ -234,6 +241,10 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().queue.map(item => [item.id, item.priority]))),
       [['move', 1], ['chat', 2]]
     );
+    const matchTicks = intervals.filter(interval => interval.ms === 1000);
+    const matchTick = matchTicks[matchTicks.length - 1].callback;
+    matchTick();
+    assert.equal(browser.window.getVoiceMonitorState().queue.some(item => item.id === 'match'), false);
 
     for (const [index, expected] of [
       [1, 'Chat Fan se une a Cerro'],
@@ -243,6 +254,19 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       await new Promise(resolve => setTimeout(resolve, 275));
       assert.equal(spoken[index]?.text, expected);
     }
+    spoken[2].onend();
+    await new Promise(resolve => setTimeout(resolve, 275));
+    now += 4000;
+    matchTick();
+    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+    assert.equal(spoken[3]?.voice, commentatorVoice);
+
+    browser.window.liveEventMonitor.receive({
+      type: 'chat', displayName: 'Interrupt Fan', username: 'interrupt-fan', content: 'Hola'
+    });
+    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'notifications');
+    assert.equal(spoken[4]?.voice, notificationVoice);
+    spoken[4].onend();
 
     assert.deepEqual(
       JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().levels
@@ -262,6 +286,51 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       server.closeAllConnections();
     });
   }
+});
+
+test('right sidebar places statistics, tools, and chronometer in separate vertical sections', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const eventScript = html.match(/<script id="evs-derecha-js">([\s\S]*?)<\/script>/)?.[1];
+  const toolsScript = html.match(/<script id="herramientas-derecha-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(eventScript);
+  assert.ok(toolsScript);
+
+  const node = id => ({
+    id,
+    children: [],
+    parentElement: null,
+    appendChild(child) {
+      if (child.parentElement) {
+        child.parentElement.children.splice(child.parentElement.children.indexOf(child), 1);
+      }
+      this.children.push(child);
+      child.parentElement = this;
+    },
+    remove() {
+      if (this.parentElement) {
+        this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
+        this.parentElement = null;
+      }
+    }
+  });
+  const topbar = node('topbar'), side = node('side'), evs = node('evs');
+  const foot = node('foot'), clock = node('cronoRegalos');
+  topbar.appendChild(evs);
+  topbar.appendChild(foot);
+  foot.appendChild(clock);
+  const document = {
+    getElementById: id => ({ evs, topbar, cronoRegalos: clock })[id] || null,
+    querySelector: selector => selector === '.board .side' ? side : selector === '.foot' ? foot : null
+  };
+  const sandbox = { document };
+
+  runInNewContext(eventScript, sandbox);
+  runInNewContext(toolsScript, sandbox);
+
+  assert.deepEqual(side.children.map(child => child.id), ['evs', 'foot', 'cronoRegalos']);
+  assert.equal(clock.parentElement, side);
+  assert.equal(foot.children.includes(clock), false);
+  assert.equal(topbar.children.length, 0);
 });
 
 test('backend voice setting controls Don Tortu avatar and speech', () => {
@@ -955,6 +1024,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   });
   const loopButton = makeToggle(), giftToggle = makeToggle();
   const savedStates = [];
+  let storedConfig = null;
   const window = {
     liveEventMonitor: { completeRound() { return Promise.resolve(); }, receive() {} },
     __known: new Map([['fan', { t: 0 }]]),
@@ -972,7 +1042,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
     CLASSIC_DEFS: fixtures,
     CLASSIC_FIXTURES: fixtures.map(([a, b]) => [a, b]),
     SRV: {
-      get: () => null,
+      get: () => storedConfig,
       set: (key, value) => savedStates.push({ key, value }),
     },
     T: [{ id: 'ol', n: 'Olimpia', c: '#fff' }, { id: 'cp', n: 'Cerro', c: '#f00' }],
@@ -1001,6 +1071,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
     ['cp|ol', false], ['ucl-bc|ucl-rm', false]
   ]);
   assert.equal(vs.data.loopEnabled, true);
+  assert.equal(vs.data.showHonorGifts, true);
   assert.match(html, /loopButton\.id='paraguayVsLoop'/);
   assert.match(html, /Bucle del Superclásico paraguayo/);
   assert.equal(loopButton.classList.active, true);
@@ -1072,6 +1143,23 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   assert.deepEqual(Array.from(vs.data.raceList, item => [item.k, item.played]), [
     ['cp|ol', false], ['ucl-bc|ucl-rm', false], ['cl-cel|cl-ran', false]
   ]);
+
+  storedConfig = {
+    v: 5,
+    cur: 'cp|ol',
+    np: 'lib-boc|lib-riv',
+    list: [{ k: 'cp|ol', on: true, popular: true }],
+    raceList: [{ k: 'cp|ol', played: true }],
+    st: {},
+    loopEnabled: false,
+    showHonorGifts: false,
+  };
+  savedStates.length = 0;
+  runInNewContext(script, context);
+  assert.equal(window.gamiVS.data.showHonorGifts, true, 'old saved settings migrate back to visible gift details');
+  assert.equal(window.gamiVS.data.np, 'lib-boc|lib-riv');
+  assert.deepEqual(Array.from(window.gamiVS.data.raceList, item => [item.k, item.played]), [['cp|ol', true]]);
+  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 6 && item.value.showHonorGifts === true));
 });
 
 test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts local', async () => {
@@ -1097,6 +1185,7 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
     querySelector: () => view,
   };
   const side = { firstChild: {}, querySelector: () => null, insertBefore() {} };
+  const intervals = [];
   let fetchCalls = 0;
   const context = {
     window: { addEventListener() {}, dispatchEvent() {} },
@@ -1105,7 +1194,7 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
       querySelector: selector => selector === '.side' ? side : selector === '#giftCounter' ? counter : selector === '#giftCount' ? count : selector === '#eventRate' ? eventRate : null,
       createElement: () => box,
     },
-    setInterval: () => 1,
+    setInterval: (callback, ms) => { intervals.push({ callback, ms }); return intervals.length; },
     clearInterval() {},
     fetch: () => {
       fetchCalls++;
@@ -1170,9 +1259,13 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
     { key: 'heart', name: 'Corazón', enabled: true, emoji: '💖', imageUrl: 'https://cdn.example.test/heart.png' }
   ], rotationSeconds: 10 });
   context.window.HonorBoard.setEventsPerMinute(1000);
-  assert.doesNotMatch(honorMarkup, /cdn\.example\.test\/rose\.png/);
-  context.window.HonorBoard.setEventsPerMinute(1001);
   assert.match(honorMarkup, /cdn\.example\.test\/rose\.png/);
+  const rotation = intervals.filter(item => item.ms === 10000).pop();
+  assert.ok(rotation, 'enabled gifts rotate by the configured idle interval without requiring extreme event rates');
+  rotation.callback();
+  assert.match(honorMarkup, /cdn\.example\.test\/heart\.png/);
+  context.window.HonorBoard.setEventsPerMinute(1001);
+  assert.match(honorMarkup, /cdn\.example\.test\/heart\.png/);
   assert.equal(eventRate.textContent, '1001');
   context.handleLiveEntry({ type: 'chat', username: 'fan' });
   assert.equal(eventRate.textContent, '1002');
@@ -1183,7 +1276,7 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
   assert.match(honorMarkup, /@ana/);
   assert.match(honorMarkup, /https:\/\/example\.test\/ana\.jpg/);
   context.window.HonorBoard.startRace('idle-after-gift');
-  assert.doesNotMatch(honorMarkup, /cdn\.example\.test\/rose\.png/);
+  assert.match(honorMarkup, /cdn\.example\.test\/rose\.png/);
   context.window.HonorBoard.setGiftDisplay(false);
   assert.match(honorMarkup, /hn-flower/);
   assert.doesNotMatch(honorMarkup, /hn-aura/);
@@ -1653,6 +1746,7 @@ test('HonorBoard keeps the rose on race start and rotates enabled gifts only whi
   assert.match(html, /entry\.enabled===false\|\|\(gift&&gift\.enabled===false\)/);
   assert.match(html, /giftName\|\|entry\.gift_name\|\|entry\.gift/);
   assert.match(html, /rotationTimer=setInterval\(rotateIdle,rotationSeconds\*1000\)/);
+  assert.doesNotMatch(html, /eventsThisMinute>1000/);
 });
 test('TikTok events are normalized to the six allowed types without forwarding bot', () => {
   const entry = normalizeTikTokEvent('chat', {
@@ -2028,7 +2122,7 @@ test('voice-priority response matches the overlay speech template contract', () 
   assert.equal(levels.gift.max, 0);
 });
 
-test('race lanes alternate sides and mark each ten-meter interval', () => {
+test('race lanes alternate sides and draw translucent guides each meter', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const laneSvg = html.match(/function laneSVG\(i,t\)\{[\s\S]*?\n\}/)?.[0];
   assert.ok(laneSvg);
@@ -2038,6 +2132,10 @@ test('race lanes alternate sides and mark each ten-meter interval', () => {
   });
   const meters = Array.from(markup.matchAll(/class="distance-tick" data-meter="(\d+)"/g), match => Number(match[1]));
   assert.deepEqual(meters, [10, 20, 30, 40, 50, 60, 70, 80, 90]);
+  const guides = Array.from(markup.matchAll(/class="route-guide(?: route-guide-major)?" data-meter="(\d+)"/g), match => Number(match[1]));
+  assert.deepEqual(guides, Array.from({ length: 100 }, (_, index) => index + 1));
+  assert.match(markup, /route-guide-major" data-meter="10"[^>]+opacity="0\.25"/);
+  assert.match(markup, /route-guide" data-meter="1"[^>]+opacity="0\.12"/);
   assert.match(html, /classList\.toggle\('swapped'\)/);
   assert.match(html, /#lanes\.swapped\{flex-direction:row-reverse\}/);
 });

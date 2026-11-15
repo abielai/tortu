@@ -308,7 +308,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
 
 3. EVENTOS REALES, CONTADOR Y TURBO
  - Contador de taps (ponderado): miembro 1, comentario 10, like 1 por me gusta, seguir 3, compartir 5. Todo evento real que no es regalo va SOLO al contador; los eventos reales no avanzan la pista directamente.
- - Limite de taps: inicia en 50 (HEART_START), sube 10 (HEART_STEP) por cada 10% de avance y nunca supera 100 (HEART_MAX); la audiencia no afecta el limite.
+ - Limite de taps: inicia y nunca supera 50 (HEART_START/HEART_MAX); la audiencia no afecta el limite.
  - Al completar el limite se activa el turbo del contador durante 7 s (HEART_TURBO_MS), sin salto inmediato.
  - Regalo real (independiente del contador, por cada unidad): +10% inmediato y turbo de 15 s (GIFT_TURBO_MS) cuyo avance total se configura en el servidor (6% por defecto). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
  - Eventos sin equipo asignado: van al carril seleccionado. Un comentario que nombra un equipo que no corre ademas le suma 1 voto.
@@ -769,7 +769,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
    return hash%teamCount;
   }});
  }
- P.HEART_START=P.HEART_START||50;P.HEART_STEP=P.HEART_STEP||10;P.HEART_MAX=P.HEART_MAX||100;
+ P.HEART_START=P.HEART_START||50;P.HEART_STEP=P.HEART_STEP||10;P.HEART_MAX=P.HEART_MAX||50;
  P.isInteractionEvent=P.isInteractionEvent||function(t){return['chat','like','gift','follow','share'].indexOf(t)>=0};
  P.tapEventDelta=P.tapEventDelta||function(t,n){var w={member:1,chat:10,like:1,follow:3,share:5}[t]||0,c=+n;return w?w*(isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
  P.statEventDelta=P.statEventDelta||function(t,n){var w={member:1,chat:5,like:1,follow:3,share:3,gift:10}[t]||0,c=+n;return w?w*((t==='gift'||t==='like')&&isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
@@ -1286,6 +1286,10 @@ function laneSVG(i,t){
   const meters=(index+1)*10,y=536-meters*4.7;
   return `<line class="distance-tick" data-meter="${meters}" x1="7" y1="${y}" x2="18" y2="${y}" stroke="#f1e8d6" stroke-width="1.2" opacity=".8"/>`;
  }).join('');
+ const routeGuides=Array.from({length:100},(_,index)=>{
+  const meters=index+1,y=536-meters*4.7,major=meters%10===0;
+  return `<line class="route-guide${major?' route-guide-major':''}" data-meter="${meters}" x1="18" y1="${y}" x2="109" y2="${y}" stroke="#f1e8d6" stroke-width="${major?.7:.35}" opacity="${major?.25:.12}"/>`;
+ }).join('');
  return `<svg viewBox="0 0 120 588" preserveAspectRatio="none" role="img" aria-label="Ruta ${t.n} con relieve"><defs>
 <filter id="m${i}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".018 .05" numOctaves="4" seed="${i+1}"/><feColorMatrix values="0 0 0 0 .52 0 0 0 0 .46 0 0 0 0 .4 2.4 0 0 0 -.95"/></filter>
 <linearGradient id="h${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf8"/><stop offset="1" stop-color="#cdbc9f"/></linearGradient>
@@ -1303,7 +1307,7 @@ function laneSVG(i,t){
 <line x1="10" y1="16" x2="110" y2="16" stroke="#f1e8d6" stroke-width="7" stroke-dasharray="7 7"/>
 <text x="60" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif">META</text>
 <rect x="9" y="66" width="7" height="470" rx="3.5" fill="#150a03" stroke="#e3b87d" stroke-opacity=".4" stroke-width=".6"/><rect x="9" y="66" width="7" height="470" rx="3.5" fill="url(#ga${i})" opacity=".3"/><rect id="gf${i}" x="10" y="536" width="5" height="0" rx="2.5" fill="url(#ga${i})"/><circle id="gk${i}" cx="12.5" cy="536" r="5" fill="#ffd566" stroke="#fff" stroke-width="1.5"/>
-<g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}
+<g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}${routeGuides}
 <g transform="translate(13 0)"><g class="tt" id="tt${i}"><g class="in" id="in${i}">
 <ellipse cx="50" cy="528" rx="26" ry="5" fill="#000" opacity=".22"/>
 <g fill="#a8e32c" stroke="#1f3a6b" stroke-width="1.4" stroke-linejoin="round"><path d="M45 514 Q50 531 55 514Z"/><ellipse class="lg l" cx="28" cy="470" rx="7" ry="9"/><ellipse class="lg r" cx="72" cy="470" rx="7" ry="9"/><ellipse class="lg l rv" cx="31" cy="512" rx="7" ry="9"/><ellipse class="lg r rv" cx="69" cy="512" rx="7" ry="9"/><circle cx="50" cy="456" r="10.5"/></g>
@@ -1868,7 +1872,7 @@ T.forEach((t,i)=>$('#sv'+i).insertAdjacentHTML('beforeend','<div class="nest" id
  fanPool    = usuarios del JSON (HINCHAS_JSON + /api/recent-users): se muestran al frente SOLO mientras el equipo no tenga eventos reales. */
 const HINCHAS_JSON=[ /* editar aqui. Formato: {username:'maria_ol', avatar:'https://...jpg', team:'ol'}  (team opcional: 'ol' o 'cp'; avatar debe ser https) */ ];
 /* ===== CONTADOR TAP TAP: inicia en 50 y sube 10 por cada 10% de avance ===== */
-/* LIMITE DE TAPS: arranca en 50, sube 10 por cada 10% y no supera 100. */
+/* LIMITE DE TAPS: arranca en 50 y nunca supera 50. */
 const HEART_START=TAP_POLICY.HEART_START,HEART_STEP=TAP_POLICY.HEART_STEP,HEART_MAX=TAP_POLICY.HEART_MAX;
 const heartBase=()=>{let mx=0;try{mx=Math.max(0,...S.map(s=>+s.p||0))}catch(e){}return Math.min(HEART_MAX,HEART_START+HEART_STEP*Math.floor(Math.min(100,mx)/10))};
 let HEART_N=HEART_START,heartLimitOffset=0;
@@ -3692,18 +3696,18 @@ function avatar(url){
 }
 function paintIdle(gift){
  if(!showGiftDetails){view.innerHTML='<span class="hn-flower" role="img" aria-label="Rosa">🌹</span>';return}
- const roseGift=eventsThisMinute>1000?(gift||catalog.find(item=>item.key==='rose')||rose):rose;
+ const roseGift=gift||catalog.find(item=>item.key==='rose')||rose;
  view.innerHTML=`<div class="hn-aura">${icon(roseGift,roseGift.imageUrl,roseGift.emoji)}</div>`;
 }
 function rotateIdle(){
  const enabled=catalog.filter(gift=>gift.enabled);
- if(!showGiftDetails||eventsThisMinute<=1000||race.last||enabled.length<2)return;
+ if(!showGiftDetails||race.last||enabled.length<2)return;
  const index=enabled.findIndex(gift=>gift.key===idleKey),next=enabled[(index+1)%enabled.length];
  idleKey=next.key;paintIdle(next);
 }
 function scheduleRotation(){
  clearInterval(rotationTimer);rotationTimer=0;
- if(showGiftDetails&&eventsThisMinute>1000&&rotationSeconds>0&&catalog.filter(gift=>gift.enabled).length>1)
+ if(showGiftDetails&&rotationSeconds>0&&catalog.filter(gift=>gift.enabled).length>1)
   rotationTimer=setInterval(rotateIdle,rotationSeconds*1000);
 }
 function paintHit(){
@@ -3761,10 +3765,8 @@ const HB=window.HonorBoard={
   else paintHit();
  },
  setEventsPerMinute(value){
-  const wasEligible=showGiftDetails&&eventsThisMinute>1000;
   eventsThisMinute=Math.max(0,Math.floor(Number(value)||0));
   if(eventRate){eventRate.textContent=String(eventsThisMinute);eventRate.setAttribute('aria-label',`${eventsThisMinute} eventos recibidos en el último minuto`)}
-  if(!race.last&&wasEligible!==(showGiftDetails&&eventsThisMinute>1000)){idleKey='rose';paintIdle();scheduleRotation()}
  },
  handleSse(type,data){
   try{const value=JSON.parse(data);
@@ -4429,7 +4431,7 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidd
 render();
 })();
 </script>
-<!-- ===== CRONOMETRO: visible en la fila de herramientas. ===== -->
+<!-- ===== CRONOMETRO y controles rápidos en un bloque propio del lateral derecho. ===== -->
 <style id="crono-regalos">
 /* Cronometro integrado en la barra visible. */
 #cronoRegalos{position:static;flex:0 0 auto;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:6px;pointer-events:none}
@@ -5117,16 +5119,19 @@ window.gamiTaps={state:st};
  background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .side>.foot>.live{grid-column:1/-1;box-sizing:border-box;width:100%!important;min-width:0!important;max-width:none!important;min-height:20px!important;height:20px;padding:0 4px!important;font-size:10px!important;justify-content:center!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side>.foot>.sm{box-sizing:border-box;flex:none;width:100%!important;min-width:0!important;max-width:none!important;height:24px!important;padding:0!important;font-size:12px!important;border-width:1px;border-radius:6px;display:flex!important;align-items:center;justify-content:center}
-.side>.foot>#cronoRegalos{grid-column:1/-1;display:flex!important;flex-direction:column;justify-content:center;width:100%;margin:0!important;transform:none!important;gap:3px!important}
-.side>.foot>#cronoRegalos #crono,.side>.foot>#cronoRegalos #raceClock{box-sizing:border-box;justify-content:center;width:100%;min-width:0;height:20px!important;padding:0 4px!important;font-size:11px!important;letter-spacing:0;gap:3px}
+.side>#cronoRegalos{order:4;flex:none;box-sizing:border-box;width:100%;margin:0!important;padding:4px 3px!important;display:flex!important;flex-direction:column;align-items:stretch;justify-content:center;transform:none!important;gap:3px!important;
+ background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
+.side>#cronoRegalos .race-clock-group{width:100%;align-items:stretch}
+.side>#cronoRegalos #crono,.side>#cronoRegalos #raceClock{box-sizing:border-box;justify-content:center;width:100%;min-width:0;height:20px!important;padding:0 4px!important;font-size:11px!important;letter-spacing:0;gap:3px}
 /* la barra inferior ya no existe: la pista toma ese alto */
 .sv>svg{height:calc(496px + var(--ex) + 38px)!important}
 </style>
 <script id="herramientas-derecha-js">
 (function(){
  const foot=document.querySelector('.foot'),side=document.querySelector('.board .side');
- if(!foot||!side||foot.parentElement===side)return;
- side.appendChild(foot);
+ if(!foot||!side)return;
+ if(foot.parentElement!==side)side.appendChild(foot);
+ const clock=document.getElementById('cronoRegalos');if(clock)side.appendChild(clock);
  const tb=document.getElementById('topbar');
  if(tb&&!tb.children.length)tb.remove(); /* sin barra inferior: fit() usa el borde seguro de abajo */
 })();
@@ -5414,7 +5419,7 @@ const DEF_LEVELS=[
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  DEF_LEVELS[0],DEF_LEVELS[1],
  {id:'gift',priority:0,ttlMs:0,max:0,interrupt:true,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
- {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,say:'{user} dice: {text}'},
+ {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,interrupt:true,say:'{user} dice: {text}'},
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
  {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
@@ -5434,7 +5439,7 @@ const TRACK=()=>+TB.trackMeters||100;
 window.getRaceTrackMeters=TRACK;
 const fill=(s,o)=>String(s||'').replace(/\{(\w+)\}/g,(_,k)=>o[k]==null?'':o[k]);
 /* 3) Voz y cola */
-const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set();let cur=null,lastEv=0,lastMatch=0,primed=false,queueGeneration=0;
+const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set();let cur=null,finishActiveSpeech=null,lastEv=0,lastMatch=0,primed=false,queueGeneration=0;
 const phraseCooldownMs=()=>Math.max(1,Math.min(1440,Number(TB.repeatCooldownMinutes)||1))*60000;
 function purgePhraseDictionary(now=Date.now()){for(const[key,phrase]of phraseDictionary)if(phrase.expiresAt<=now)phraseDictionary.delete(key)}
 function phraseKey(text){return String(text||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ')}
@@ -5458,9 +5463,15 @@ window.addEventListener('voice-config-update',event=>{
  }
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
-window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
+const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
+window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
+const sameVoice=(a,b)=>!!a&&!!b&&(a===b||(a.voiceURI&&a.voiceURI===b.voiceURI)||(a.name===b.name&&a.lang===b.lang));
+const pickNotificationVoice=()=>{
+ const voices=SS.getVoices?SS.getVoices():[],commentator=pickVoice();
+ return voices.find(voice=>/^es/i.test(voice.lang)&&!sameVoice(voice,commentator))||commentator;
+};
 function releasePending(item){if(item&&item.phraseKey)pendingPhrases.delete(item.phraseKey)}
 function purge(){const n=Date.now();for(let i=Q.length-1;i>=0;i--)if(Q[i].ttl>0&&n-Q[i].at>Q[i].ttl){releasePending(Q[i]);Q.splice(i,1)}}
 function clearLegacyQueues(){
@@ -5473,12 +5484,12 @@ function clearLegacyQueues(){
  if(typeof giftSpeechGeneration!=='undefined')giftSpeechGeneration++;
 }
 function clearQueue(){
- queueGeneration++;Q.forEach(releasePending);Q.length=0;pendingPhrases.clear();cur=null;clearLegacyQueues();
+ queueGeneration++;Q.forEach(releasePending);Q.length=0;pendingPhrases.clear();cur=null;finishActiveSpeech=null;clearLegacyQueues();
  try{SS.cancel()}catch(e){}
 }
 function clearDisabledLevels(){
  for(let i=Q.length-1;i>=0;i--)if(!levelEnabled(Q[i].id)){releasePending(Q[i]);Q.splice(i,1)}
- if(cur&&!levelEnabled(cur.id)){queueGeneration++;cur=null;try{SS.cancel()}catch(e){}}
+ if(cur&&!levelEnabled(cur.id)){queueGeneration++;cur=null;finishActiveSpeech=null;try{SS.cancel()}catch(e){}}
  pump();
 }
 function say(id,text,force){
@@ -5488,7 +5499,10 @@ function say(id,text,force){
  const same=Q.filter(x=>x.id===id),max=Number(L.max);if(max>0)while(same.length>=max){const removed=same.shift();releasePending(removed);Q.splice(Q.indexOf(removed),1)}
  if(force){const keep=Q.filter(x=>x.p<it.p);Q.forEach(item=>{if(!keep.includes(item))releasePending(item)});Q.splice(0,Q.length,...keep)}
  Q.push(it);Q.sort((a,b)=>a.p-b.p||a.at-b.at);
- if(cur&&L.interrupt&&it.p<cur.p){try{SS.cancel()}catch(e){}} /* regalo: corta lo de menor prioridad */
+ if(cur&&L.interrupt&&it.p<cur.p){
+  try{SS.cancel()}catch(e){}
+  if(finishActiveSpeech)finishActiveSpeech();
+ }
  pump();
 }
 function pump(){
@@ -5500,10 +5514,13 @@ function pump(){
   phraseDictionary.set(it.phraseKey,{text:String(it.text),spokenAt:now,expiresAt:now+phraseCooldownMs()});
  }
  cur=it;let done=false;const generation=queueGeneration;
- const end=()=>{if(done)return;done=true;clearTimeout(safeT);if(generation!==queueGeneration)return;cur=null;setTimeout(pump,it.p<=2?250:150)};
+ const end=()=>{if(done)return;done=true;clearTimeout(safeT);if(generation!==queueGeneration)return;cur=null;if(finishActiveSpeech===end)finishActiveSpeech=null;setTimeout(pump,it.p<=2?250:150)};
  const safeT=setTimeout(()=>{try{SS.cancel()}catch(e){}end()},14000);
+ finishActiveSpeech=end;
  try{const u=new SpeechSynthesisUtterance(it.text);u._cp=true;u.lang='es-ES';u.rate=1.08;u.pitch=1.08;u.volume=1;
-  const v=pickVoice();if(v){u.voice=v;u.lang=v.lang}
+  const notifications=voiceRole(it.id)==='notifications',v=notifications?pickNotificationVoice():pickVoice();
+  u.rate=notifications?1:1.08;u.pitch=notifications ? .9 : 1.12;
+  if(v){u.voice=v;u.lang=v.lang}
   safe(()=>talk(it.text.length*75+600));
   u.onend=end;u.onerror=end;_sp(u)}catch(e){end()}
 }
@@ -5612,15 +5629,17 @@ const safe=f=>{try{return f()}catch(e){return undefined}};
 const M=window.liveEventMonitor;
 if(!M||!safe(()=>CLASSIC_DEFS)||!safe(()=>SRV)||!safe(()=>T)||!safe(()=>P))return;
 const K='cluss.vs',key=(a,b)=>[a,b].sort().join('|');
-const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=5,LEGACY_CONFIG_VERSION=4;
+const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=6,PREVIOUS_CONFIG_VERSION=5,LEGACY_CONFIG_VERSION=4;
 const nmOf=id=>{const n=String(safe(()=>tournamentItem(id).n)||id);return n[0]+n.slice(1).toLowerCase()};
 const DEF=CLASSIC_DEFS.map(d=>({k:key(d[0],d[1]),a:d[0],b:d[1],n:d[2],on:STARTER_KEYS.has(key(d[0],d[1])),popular:STARTER_KEYS.has(key(d[0],d[1]))}));
 /* ---------- LISTA + ESTADISTICAS (documento del SERVIDOR: GET/PUT /api/state/cluss.vs) ---------- */
 const raw=safe(()=>SRV.get(K,null))||{};
 const hasCurrentConfig=raw.v===CONFIG_VERSION;
-const hasStoredConfig=hasCurrentConfig||([LEGACY_CONFIG_VERSION,3].includes(raw.v)&&Array.isArray(raw.list));
-const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasCurrentConfig||raw.v===4)&&typeof raw.np==='string'?raw.np:'',raceList:hasCurrentConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:raw.loopEnabled!==false,showHonorGifts:raw.showHonorGifts!==false,list:[]};
-(hasStoredConfig&&Array.isArray(raw.list)?raw.list:[]).forEach(x=>{const d=DEF.find(y=>y.k===x.k);if(d&&!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d,{on:x.on!==false,popular:hasCurrentConfig?x.popular===true:STARTER_KEYS.has(x.k)}))});
+const hasPreviousConfig=raw.v===PREVIOUS_CONFIG_VERSION;
+const hasModernConfig=hasCurrentConfig||hasPreviousConfig;
+const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,3].includes(raw.v)&&Array.isArray(raw.list));
+const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||raw.v===LEGACY_CONFIG_VERSION)&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:raw.loopEnabled!==false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts!==false:true,list:[]};
+(hasStoredConfig&&Array.isArray(raw.list)?raw.list:[]).forEach(x=>{const d=DEF.find(y=>y.k===x.k);if(d&&!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d,{on:x.on!==false,popular:hasModernConfig?x.popular===true:STARTER_KEYS.has(x.k)}))});
 DEF.forEach(d=>{if(!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d))}); /* VS nuevos al final */
 const save=()=>safe(()=>SRV.set(K,{v:CONFIG_VERSION,cur:D.cur,np:D.np,list:D.list.map(x=>({k:x.k,on:x.on,popular:x.popular})),raceList:D.raceList.map(x=>({k:x.k,played:x.played})),st:D.st,loopEnabled:D.loopEnabled,showHonorGifts:D.showHonorGifts}));
 const byKey=k=>D.list.find(x=>x.k===k);
