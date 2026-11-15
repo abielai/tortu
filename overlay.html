@@ -1,6 +1,70 @@
 <!doctype html>
 <!--
 ========================================================================================================
+ REGLA GENERAL 0 - POLITICA DE TIKTOK SOBRE REGALOS (PRIORIDAD MAXIMA, PREVALECE SOBRE TODA OTRA REGLA)
+========================================================================================================
+ MOTIVO: TikTok suspendio la visibilidad del live por "solicitar regalos mediante acciones repetitivas,
+ promesas enganosas, presion emocional o actos degradantes". Esta regla existe para que NO se repita.
+
+ ALCANCE DE CUALQUIER CAMBIO EN ESTE ARCHIVO:
+  - Modificar UNICAMENTE la interfaz y el comportamiento visual/sonoro/hablado del overlay.
+  - BACKEND_README.txt es el CONTRATO del servidor: NO cambiar rutas, metodos HTTP, formatos de solicitud/respuesta,
+    nombres de eventos SSE, claves de persistencia, la capa SRV ni la firma de despliegue.
+  - NO inventar datos ni simular eventos. Conservar el contrato. No subir cambios al repositorio sin aprobacion.
+  - Al terminar, informar: resumen de cambios + incompatibilidades o dudas encontradas.
+
+ INSTRUCCION PARA CUALQUIER PROGRAMADOR O IA QUE MODIFIQUE ESTE ARCHIVO:
+ Antes de agregar o cambiar cualquier texto, voz, sonido, animacion, cartel, boton o mecanica, verificar que
+ cumpla TODO lo siguiente. Si algo no cumple, NO se implementa, y si ya existe, se elimina.
+
+ A) PROHIBIDO PEDIR (en pantalla, en voz en off, en sonidos, en traducciones, en comentarios visibles):
+    - Regalos, monedas, rosas, pistolas, capibaras, perfumes ni ningun regalo concreto.
+    - Likes, "toca el live", "tap tap", "apoya", "dale", "manda", "envia", "sigue la cuenta" ni "comparte".
+    - Pedir comentar o escribir el equipo como llamado a la accion ("escribe el nombre de tu equipo...").
+    - Frases con tono de orden, ruego o insistencia, aunque sean amables o con humor.
+
+ B) PROHIBIDO PROMETER O PREMIAR A CAMBIO DE REGALOS:
+    - Ninguna frase, voz o cartel puede decir que un regalo da un beneficio ("entra en modo turbo",
+      "tu foto queda en el cuadro de honor", "tu equipo gana ventaja", "avanza X %").
+    - Los regalos NO deben dar ventaja de juego: ni avance directo, ni turbo, ni puntos, ni ranking, ni
+      cuadro de honor. Un regalo real solo puede recibir un agradecimiento neutro ("Gracias {usuario}").
+    - No mostrar catalogos, listas, carteles ni contadores que expliquen "que hace cada regalo" ni
+      cuanto vale cada uno (sin pestana "Turbo regalos", sin carteles de rosa/pistola, sin contador de regalos).
+
+ C) PROHIBIDO PRESION EMOCIONAL Y ACTOS DEGRADANTES:
+    - Nada de culpa, urgencia falsa ("ultima oportunidad"), cuentas regresivas para forzar regalos, ni
+      comparar o humillar a quien no regala. Nunca ridiculizar, castigar ni retar a nadie para que regale.
+
+ D) PROHIBIDO REPETIR DE FORMA INSISTENTE:
+    - Los avisos, voces y sonidos no deben repetirse en bucle ni en ciclos fijos para empujar una accion.
+    - Maximo un agradecimiento por regalo real. Sin invitaciones periodicas de ninguna clase.
+
+ E) LO UNICO PERMITIDO:
+    - INFORMAR o REACCIONAR a eventos REALES ya ocurridos (alguien se unio, comento, dio like, siguio,
+      compartio o envio un regalo), con agradecimiento neutro y sin pedir ni prometer nada.
+    - Mostrar el estado de la pista (metros, posicion, turbo por taps) sin vincularlo a regalos.
+    - Sonidos y efectos (incluido 8 bit arcade) SOLO como reaccion a un evento real, nunca como estimulo
+      para provocar una accion futura.
+
+ F) COMPROBACION OBLIGATORIA ANTES DE ENTREGAR CUALQUIER CAMBIO:
+    1) Buscar en TODO el archivo (incluida la tabla de traducciones ES/EN y las voces por prioridad) las
+       palabras: regalo, regala, gift, rosa, pistola, toca, tap, apoya, sigue, comparte, manda, envia,
+       turbo por regalo, cuadro de honor, CTA.
+    2) Confirmar que ningun texto visible u hablado cumple A, B, C o D.
+    3) Si una regla de abajo contradice esta REGLA 0, gana esta REGLA 0 y la otra se corrige.
+
+ EXCEPCION 1 (AUTORIZADA POR EL AUTOR, 2026-11-15, RIESGO ACEPTADO): cuadro de honor por equipo, arriba de la pista y
+    debajo del contador, con avatar + @usuario + regalo del ULTIMO donador (datos reales ya guardados en el servidor,
+    clave cluss.honorLastGiftTeams), y la linea de llegada rotulada "HONOR" en lugar de "META". Esto va en contra del
+    punto B (reconocimiento publico por regalar) y puede volver a ser sancionado; el autor lo asume y usa una cuenta de
+    pruebas. NO ampliar esta excepcion a promesas verbales, turbo ni ventajas por regalo.
+
+ REGISTRO: esta regla nace de la sancion de TikTok al live. Cualquier cambio que la debilite debe ser
+ aprobado de forma explicita por el autor.
+========================================================================================================
+-->
+<!--
+========================================================================================================
  INICIO DEL BLOQUE PARA EL DESARROLLADOR DEL BACKEND   (todo lo que esta entre este 'INICIO' y el 'FIN' es solo documentacion)
 ========================================================================================================
  QUE ES: toda la documentacion del servidor, reunida en un solo lugar. Antes estaba repartida por el encabezado y por el bloque
@@ -295,7 +359,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
 
 1. REGLA PERMANENTE (TikTok ya sanciono al autor)
  - Ningun cuadro emergente, aviso, banner ni voz en off pide acciones a los espectadores (comentar, seguir, compartir, tocar/apoyar o enviar regalos). Solo informa o reacciona a eventos REALES.
- - El overlay no muestra ni solicita regalos, capibaras ni perfumes. Los regalos reales avanzan la carrera sin sumar taps; desde 1 diamante disparan una alerta alegre.
+ - El overlay no muestra ni solicita regalos, capibaras ni perfumes. Los regalos reales NO avanzan la carrera ni dan turbo; desde 1 diamante solo disparan un agradecimiento neutro.
  - Los hitos 25%, 50% y 75% y los banners (remontada, carrera pareja, foto finish) muestran solo el estado de la pista.
 
 2. FORMATO DEL DUELO / TORNEO LIBRE (vigente)
@@ -310,7 +374,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
  - Contador de taps (ponderado): miembro 1, comentario 10, like 1 por me gusta, seguir 3, compartir 5. Todo evento real que no es regalo va SOLO al contador; los eventos reales no avanzan la pista directamente.
  - Limite de taps fijo en 45 por equipo; ni el avance de la carrera ni los controles pueden modificarlo.
  - Al completar el limite se activa el turbo del contador durante 7 s (HEART_TURBO_MS), sin salto inmediato.
- - Regalo real (independiente del contador, por cada unidad): +10% inmediato y turbo de 15 s (GIFT_TURBO_MS) cuyo avance total se configura en el servidor (6% por defecto). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
+ - Regalo real: NO da avance, turbo ni puntos (REGLA 0-B; antes +10% y turbo de 15 s). Solo se agradece y se muestra en el cuadro de honor (EXCEPCION 1). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
  - Eventos sin equipo asignado: van al carril seleccionado. Un comentario que nombra un equipo que no corre ademas le suma 1 voto.
  - Gamificacion del limite de taps (v11, capa SOLO visual, no altera limites ni puntos; id gami-taps): marcas en 25/50/75 %, color por fase (rosa, naranja, dorado), estado CASI LLENO desde 90 %, COMBO de eventos reales seguidos (2,5 s) y racha de turbos de la ronda (⚡ ×N, banner en 3, 5 y 8). Solo informa; nunca pide acciones (regla 1).
  - Dificultad: cada evento vale HARD (0.5) de lo que valia (duelo equilibrado, 4 veces mas dificil) y el avance pasivo se detiene en PASSIVE_CAP (%). El resto de la pista solo se recorre con interaccion.
@@ -356,7 +420,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
  14. ESFUERZO DE LA TORTUGA (v15, capa SOLO visual; id tortu-esfuerzo, al final): mientras carga la barra del limite de taps, cada tap/like/seguir/compartir REAL hace que las patas y el caparazon de la tortuga del equipo trabajen mas (4 fases segun el llenado; fase 4 con brillo y fuego, tambien durante el turbo) y suelta polvo; un comentario real da un empujon y un globito. Se apaga 1,8 s despues del ultimo evento. No cambia limites ni puntos; nunca pide acciones (regla 1).
  15. AVISOS DE MAXIMO 3 s (v16, id aviso-cuenta, al final): ninguna ventana emergente (banner, aviso, tarjeta de regalo, logro, hype) dura mas de 3 s y todas muestran un contador regresivo en segundos (3, 2, 1) en su esquina. La tarjeta de regalo dura 2,6 s (+0,4 s de salida). Solo informa; nunca pide acciones (regla 1).
  16. RECTA FINAL SIN VENTANAS (v17, id recta-final-js, al final): desde que la tortuga lider pasa RF=70 % de pista, ninguna ventana emergente (banner, aviso, regalo, logro, hype) se muestra, para ver la pista completa; quedan en espera (maximo 3, las mas recientes) y se muestran una a una DESPUES, al llegar a la meta (fin de ronda). Al empezar una ronda nueva lo pendiente se descarta. Solo informa; nunca pide acciones (regla 1).
- 17. VOZ POR PRIORIDAD Y METROS (v18, id voz-prioridad-js, al final): orden: 1 agradecer cada regalo y alerta alegre desde 1 diamante; 2 anunciar cambios de equipo; 3 leer comentarios; 4 agradecer acciones, saludar, dar la bienvenida al hincha destacado con su usuario y el líder de pista, y anunciar turbos por equipo; 5 narrar el avance y lo que falta para la meta; 6 invitar en la segunda voz a enviar tap tap para apoyar a su equipo. Al empezar, anuncia el duelo y la invitacion. Tabla: server/voice-priority.js -> GET /api/voice-priority. La pista se mide en METROS: la meta esta a 100 m (1 punto de pista = 1 m). Nunca pide acciones (regla 1).
+ 17. VOZ POR PRIORIDAD Y METROS (v18, id voz-prioridad-js, al final): orden: 1 agradecer cada regalo y alerta alegre desde 1 diamante; 2 anunciar cambios de equipo; 3 leer comentarios; 4 agradecer acciones, saludar, dar la bienvenida al hincha destacado con su usuario y el líder de pista, y anunciar turbos por equipo; 5 narrar el avance y lo que falta para la meta; 6 (ELIMINADO por la REGLA 0-A: ya no se invita a enviar tap tap). Al empezar, solo anuncia el duelo. Tabla: server/voice-priority.js -> GET /api/voice-priority. La pista se mide en METROS: la meta esta a 100 m (1 punto de pista = 1 m). Nunca pide acciones (regla 1).
  18. VS EN BUCLE + LISTA EN EL BACK + ESTADISTICAS POR VS (v19, ids vs-motor / vs-motor-js, al final): cada VS se repite (serie tras serie) mientras haya interaccion; cuando la cuenta regresiva llega a 0 avanza en tandas: todos los VS habilitados marcados populares y, al final, un solo VS habilitado no popular. Al completar la tanda recarga los populares con el siguiente no popular habilitado. Popularidad y estadisticas viven en cluss.vs. Valor por evento real: miembro 1, comentario 5, like 1 c/u, seguir 3, compartir 3, regalo 10; ranking = valor por ronda. Los bots no cuentan. Nunca pide acciones (regla 1).
  19. AUDIENCIA EN COPAS: eliminada del cuadro de copas. Solo se muestra el contador de copas, sin icono ni número de audiencia.
  20. VOZ: CAMBIO DE EQUIPO Y SALUDO AL INGRESAR (v21, dentro de voz-prioridad-js): nivel 'move' = prioridad 1: un hincha que nombra un club ('se une a X') o cambia de uno ('cambio de X a Y') se anuncia en cola (FIFO, maximo 8). Nivel 'welcome' = prioridad 3, saludo 'Bienvenido <usuario>' a cada evento 'member' (una vez; de nuevo si reingresa tras 10 min; maximo 6 en cola). Si el backend (GET /api/voice-priority) no trae esos niveles, el frontend agrega los suyos por defecto. Nunca pide acciones (regla 1).
@@ -1081,7 +1145,7 @@ const TURBO_PPS=4,GIFT_TURBO_MS=15000,HEART_TURBO_MS=7000;
 let GIFT_TURBO_PROGRESS=6,HEART_TURBO_PROGRESS=20;
 let GIFT_TURBO_PPS=GIFT_TURBO_PROGRESS/(GIFT_TURBO_MS/1000),HEART_TURBO_PPS=HEART_TURBO_PROGRESS/(HEART_TURBO_MS/1000);
 function turboGain(rate,ms,handicap){return rate*ms/1000*handicap}
-const GIFT_PROGRESS=10,GIFT_TEAM_WINDOW_MS=60000; /* bonificación estadística; el turbo convierte diamantes a metros */
+const GIFT_PROGRESS=0,GIFT_TEAM_WINDOW_MS=60000; /* REGLA 0-B: un regalo NO da avance, turbo ni puntos en la carrera (antes 10). Fórmula: +10 m + 5 m/💎 */
 /* Devuelve el equipo que un usuario nombro en el chat hace poco (para saber a quien apoya su regalo). */
 function recentChatTeam(key,now=Date.now()){
  const pick=recentChatPicks.get(key);
@@ -1307,7 +1371,7 @@ function laneSVG(i,t){
 <rect x="7.5" y="5" width="105" height="130" rx="13" fill="url(#gt${i})"/>
 <g stroke="#1a0e05" stroke-width="1.6" opacity=".7"><path d="M36 186H110 M36 304H110 M36 421H110"/></g><g stroke="#e3b87d" stroke-width=".8" opacity=".35"><path d="M36 187.5H110 M36 305.5H110 M36 422.5H110"/></g>
 <line x1="10" y1="16" x2="110" y2="16" stroke="#f1e8d6" stroke-width="7" stroke-dasharray="7 7"/>
-<text class="meta-label" x="105" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="end" font-family="Inter,sans-serif">META</text>
+<text class="meta-label" x="105" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="end" font-family="Inter,sans-serif">HONOR</text>
 <rect x="9" y="66" width="7" height="470" rx="3.5" fill="#150a03" stroke="#e3b87d" stroke-opacity=".4" stroke-width=".6"/><rect x="9" y="66" width="7" height="470" rx="3.5" fill="url(#ga${i})" opacity=".3"/><rect id="gf${i}" x="10" y="536" width="5" height="0" rx="2.5" fill="url(#ga${i})"/><circle id="gk${i}" cx="12.5" cy="536" r="5" fill="#ffd566" stroke="#fff" stroke-width="1.5"/>
 <g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}${routeGuides}
 <g transform="translate(13 0)"><g class="tt" id="tt${i}"><g class="in" id="in${i}">
@@ -1402,17 +1466,17 @@ function reset(){
 $('#lanes').addEventListener('click',e=>{const b=e.target.closest('.hd');if(!b)return;sel=+b.dataset.i;update();say(`Tu equipo: ${T[sel].n}`)});
 /* Los controles locales permanecen deshabilitados y no generan eventos de juego. */
 document.addEventListener('keydown',e=>{if(['1','2','3'].includes(e.key)){sel=+e.key-1;update();say(`Tu equipo: ${T[sel].n}`)}});
-/* Detecta el pais en un comentario (nombre, sigla de 2 letras o bandera). Devuelve el indice del carril o -1 */
+/* Detecta el equipo nombrado en el comentario buscando solo los dos carriles actuales. */
 function findTeam(text){
  const raw=String(text||'');
  const normalized=raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
- const active=poolForMode(),matches=item=>(item.aliases||[item.n]).some(alias=>new RegExp(`(^|[^A-Z0-9])${alias.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}($|[^A-Z0-9])`).test(normalized));
- if(tournamentMode!=='py')return T.findIndex(t=>active[t.id]&&matches(active[t.id]));
- const AL={ol:['OLIMPIA','OLI','DECANO'],cp:['CERRO','CERRO PORTENO','CP','CICLON','AZULGRANA'],li:['LIBERTAD','GUMARELO'],gu:['GUARANI','ABORIGEN'],lu:['LUQUENO','LUQUE','SPORTIVO LUQUENO','CHANCHON'],na:['NACIONAL','TRICOLOR','ACADEMIA'],sa:['SOL DE AMERICA','DANZARIN'],to:['12 DE OCTUBRE','DOCE DE OCTUBRE','12 OCTUBRE','ITAUGUA']}; /* CLUSS: palabras que cuentan como nombrar al club */
- return T.findIndex(t=>(AL[t.id]||[]).some(alias=>/[^\x00-\x7F]/.test(alias)
-  ?raw.includes(alias)
-  :new RegExp(`(^|[^A-Z0-9])${alias}($|[^A-Z0-9])`).test(normalized)
- ));
+ const escapeForRegex=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ const matches=item=>Boolean(item&&(item.aliases||[item.n]).some(alias=>{
+  const key=escapeForRegex(alias);
+  return new RegExp(`(^|[^A-Z0-9])${key}($|[^A-Z0-9])`).test(normalized);
+ }));
+ if(!Array.isArray(T)||!T.length)return -1;
+ return T.findIndex(team=>matches(tournamentItem ? tournamentItem(team.id) : team));
 }
 function trackTournamentMentions(text){
  const normalized=String(text||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -1844,8 +1908,7 @@ push=function(i,type,n=1){
   if(type==='gift'){
    const gifts=Math.max(1,Math.floor(Number(n)||1)),diamonds=Number(arguments[3]);
    const perGift=Number.isFinite(diamonds)&&diamonds>0?diamonds/gifts:1;
-   S[i].g+=gifts;giftTurboOn(i,gifts,perGift);
-   float(i,'⚡+'+TAP_POLICY.giftTurboMeters(perGift,gifts)+' m');walk(i);
+   S[i].g+=gifts; /* REGLA 0-B: solo estadistica; sin turbo ni metros por regalo (antes giftTurboOn + '⚡+N m') */
   }
  }
  if(was||i<0||!S[i])return;
@@ -2428,7 +2491,7 @@ function giftThanksText(g){
  const en=!!(window.I18N&&window.I18N.en);
  const thank=g.gift?(en?'for sending ':'por enviar ')+(g.count>1?g.count+' ':'')+g.gift:(g.count===1?'por tu regalo':'por tus '+g.count+' regalos');
  const known=g.t>=0&&T[g.t];
- const turbo=known?(en?' Your team '+cap(T[g.t].n)+' goes into turbo mode and you are now in the Hall of Fame!':' ¡Tu equipo '+cap(T[g.t].n)+' entra en modo turbo y ahora quedas en el cuadro de honor!'):'';
+ const turbo=''; /* REGLA 0-B: agradecimiento neutro, sin promesas ni beneficios */
  return(en?'Thank you ':'¡Gracias ')+g.name+' '+thank+'!'+turbo;
 }
 function speakNextGift(){
@@ -3685,7 +3748,7 @@ const key=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'
 const https=value=>/^https:\/\//i.test(String(value||''));
 const rose={key:'rose',name:'Rosa',value:1,enabled:true,aliases:['rose','rosa','rosita'],emoji:'🌹',imageUrl:''};
 const RATE_EVENT_TYPES=new Set(['member','chat','gift','like','follow','share']);
-let catalog=[rose],race={id:'',last:null,users:new Map()},seen=new Set(),total=0,turboUntil=0,giftTurboMs=15000,rotationSeconds=0,rotationTimer=0,idleKey='rose',showGiftDetails=true,eventsThisMinute=0;
+let catalog=[rose],race={id:'',last:null,users:new Map()},seen=new Set(),total=0,turboUntil=0,giftTurboMs=0,rotationSeconds=0,rotationTimer=0,idleKey='rose',showGiftDetails=true,eventsThisMinute=0;
 const eventRate=document.querySelector('#eventRate');
 const tiers=[{min:10,label:'👑 LEYENDA'},{min:3,label:'🔥 FANÁTICO'},{min:1,label:'🎖️ HONOR'}];
 function findGift(entry){
@@ -3969,10 +4032,8 @@ const SENT=[
 [/Ganó (.+?)! Gracias por jugar y alentar\. En unos segundos arranca otra ronda, ¡te esperamos!/g,"$1 wins! Thanks for playing and cheering. Another round starts in a few seconds, we'll be waiting for you!"],
 [/Tenemos campeón: (.+?)! Gracias por estar\. Ya viene una nueva carrera\./g,'We have a champion: $1! Thanks for being here. A new race is coming.'],
 [/Tenemos campeón del torneo! (.+?) se lleva las tres copas\. ¡Felicitaciones y gracias por jugar!/g,'We have the tournament champion! $1 takes all three cups. Congratulations and thanks for playing!'],
-[/Bienvenidos al duelo (.+?) contra (.+?)\. Aquí cada hincha cuenta: escribe el nombre de tu equipo para apoyar a tu equipo\. ¡Gana el primero que llegue a la meta!/g,"Welcome to the duel $1 versus $2. Here every fan counts: type your team's name to support your team. First to reach the finish line wins!"],
 [/Recta final! Todo se decide ahora\. ¡Vamos, tortugas!/g,'Final stretch! Everything is decided now. Go, turtles!'],
 [/Llegando a la meta! ¡Qué emoción, esto está parejísimo!/g,'Approaching the finish line! How exciting, it is neck and neck!'],
-[/Enviar un regalo a tu equipo activa el modo turbo y le ayuda a llegar más rápido a la meta\./g,'Sending a gift to your team activates turbo mode and helps it reach the finish line faster.'],
 [/El ganador de este duelo pasa a (.+?)\. El que pierde queda eliminado\./g,(m,r)=>'The winner of this duel moves on to '+({'el campeón del torneo':'the tournament champion','la final':'the final','las semifinales':'the semifinals','la siguiente ronda':'the next round'}[r]||r)+'. The loser is eliminated.'],
 [/Ánimo (.+?)! ¡La carrera sigue, a no aflojar!/g,"Come on $1! The race goes on, don't ease up!"],
 [/Vamos (.+?)! ¡Todavía hay pista por delante!/g,"Let's go $1! There's still track ahead!"],
@@ -3995,7 +4056,7 @@ const SENT=[
 [/RONDA (\d+)/g,'ROUND $1']
 ];
 /* ---- 4) Fragmentos sueltos (de mas largo a mas corto) ---- */
-const FRAG_SRC={'OCTAVOS DE FINAL':'ROUND OF 16','CUARTOS DE FINAL':'QUARTERFINALS','SEMIFINALES':'SEMIFINALS','CAMPEÓN':'CHAMPION','Campeón':'Champion','AVANZA!':'ADVANCES!','GANA LA CARRERA':'WINS THE RACE','toma la delantera':'takes the lead','¡RECTA FINAL!':'FINAL STRETCH!','Recta final':'Final stretch','RECTA FINAL':'FINAL STRETCH','¡Todo se decide en la recta!':'Everything is decided on the straight!','¡Vamos, tortugas!':'Go, turtles!','¡Qué carrera, gente!':'What a race, people!','Tu equipo: ':'Your team: ','¡Gracias por el regalo!':'Thanks for the gift!','Copas reiniciadas: todo empieza de cero':'Cups reset: everything starts from zero','Toca ↺ otra vez para reiniciar las copas':'Tap ↺ again to reset the cups','¿Seguro? Toca de nuevo':'Sure? Tap again','Torneo automático (rota solo al terminar cada copa)':'Automatic tournament (rotates when each cup ends)','Torneo automático':'Automatic tournament','Torneo fijo: ':'Fixed tournament: ','Torneo: ':'Tournament: ','es el campeón del torneo':'is the tournament champion','🏆 ¡GANÓ EL TORNEO!':'🏆 WON THE TOURNAMENT!','➡️ Pasa a ':'➡️ Advances to ','NUEVO TORNEO':'NEW TOURNAMENT','SIGUIENTE PARTIDO':'NEXT MATCH',' · un solo partido':' · single match','¡Hincha acertado! Ganó tu equipo':'Spot-on fan! Your team won','¡Tu equipo ganó! +50 XP':'Your team won! +50 XP','¡Hincha destacado: ':'Featured fan: ',' es el nuevo MVP':' is the new MVP',' lidera la sala':' leads the room',' se pasó a ':' switched to ','Carrera pareja: 5 cambios de líder':'Close race: 5 lead changes','¡MÁXIMO!':'MAX!','¡Combo máximo x3!':'Max combo x3!','activa el TURBO 🚀':'activates TURBO 🚀','avanza y activa el TURBO 🚀':'advances and activates TURBO 🚀','comparte y suma +5':'shares and adds +5','gana al instante 🏆':'wins instantly 🏆','sigue y suma +3':'follows and adds +3','¡toca el live! ❤️':'tap the live! ❤️','¡comparte el live! ↗️':'share the live! ↗️','¡sigue la cuenta! ➕':'follow the account! ➕','APOYAR: cada toque en el live suma 1 tap':'SUPPORT: each tap on the live adds 1 tap','COMPARTIR: compartir el live suma 5 taps':'SHARE: sharing the live adds 5 taps','SEGUIR: seguir la cuenta suma 3 taps':'FOLLOW: following the account adds 3 taps','ROSITA: activa el modo turbo':'ROSE: activates turbo mode','PISTOLA DE DINERO: gana la carrera':'MONEY GUN: wins the race','por tu regalo':'for your gift','por tus ':'for your ',' compartió · sumó taps para ':' shared · added taps for ',' · ¡TURBO! +':' · TURBO! +',' · ¡nuevo hincha de ':' · new fan of ',' · +10% y turbo para ':' · +10% and turbo for ',' · tocar para cambiar':' · tap to switch',' · ¡gracias!':' · thanks!','¡Gracias ':'Thanks ','! Hinchada de ':'! Fans of ',' por traer más hinchas!':' for bringing more fans!',' es hincha de ':' is a fan of ','¡Bienvenido a la familia, ':'Welcome to the family, ','Saludamos al hincha de ':'We greet the fan of ',' dice: ':' says: ','alguien':'someone',': en vivo':': live',': sin conexión':': offline',': conectando':': connecting','Inicio de carrera':'Race start','Cada hincha que escribe su equipo hace avanzar a su tortuga.':'Every fan who types their team moves their turtle forward.','Escribe el nombre de tu equipo en el chat para apoyarlo.':"Type your team's name in the chat to support it.",'Así se juega: tu equipo en el chat.':'How to play: type your team in the chat.','El ganador pasa a ':'The winner moves on to ','la siguiente ronda':'the next round','las semifinales':'the semifinals','la final':'the final','Límite de taps del turbo y versión':'Turbo tap limit and version','⚡ Límite ':'⚡ Limit ','Contador de ':'Counter of ','Hinchas de ':'Fans of ','Bandera de ':'Flag of ','Cuadro de ':'Bracket of ','Fixture del torneo: cuartos de final, semifinales y final':'Tournament fixture: quarterfinals, semifinals and final','Ruta ':'Track ',' con relieve':' with relief','MVP: ':'MVP: ','⏳ En curso':'⏳ In progress'};
+const FRAG_SRC={'OCTAVOS DE FINAL':'ROUND OF 16','CUARTOS DE FINAL':'QUARTERFINALS','SEMIFINALES':'SEMIFINALS','CAMPEÓN':'CHAMPION','Campeón':'Champion','AVANZA!':'ADVANCES!','GANA LA CARRERA':'WINS THE RACE','toma la delantera':'takes the lead','¡RECTA FINAL!':'FINAL STRETCH!','Recta final':'Final stretch','RECTA FINAL':'FINAL STRETCH','¡Todo se decide en la recta!':'Everything is decided on the straight!','¡Vamos, tortugas!':'Go, turtles!','¡Qué carrera, gente!':'What a race, people!','Tu equipo: ':'Your team: ','¡Gracias por el regalo!':'Thanks for the gift!','Copas reiniciadas: todo empieza de cero':'Cups reset: everything starts from zero','Toca ↺ otra vez para reiniciar las copas':'Tap ↺ again to reset the cups','¿Seguro? Toca de nuevo':'Sure? Tap again','Torneo automático (rota solo al terminar cada copa)':'Automatic tournament (rotates when each cup ends)','Torneo automático':'Automatic tournament','Torneo fijo: ':'Fixed tournament: ','Torneo: ':'Tournament: ','es el campeón del torneo':'is the tournament champion','🏆 ¡GANÓ EL TORNEO!':'🏆 WON THE TOURNAMENT!','➡️ Pasa a ':'➡️ Advances to ','NUEVO TORNEO':'NEW TOURNAMENT','SIGUIENTE PARTIDO':'NEXT MATCH',' · un solo partido':' · single match','¡Hincha acertado! Ganó tu equipo':'Spot-on fan! Your team won','¡Tu equipo ganó! +50 XP':'Your team won! +50 XP','¡Hincha destacado: ':'Featured fan: ',' es el nuevo MVP':' is the new MVP',' lidera la sala':' leads the room',' se pasó a ':' switched to ','Carrera pareja: 5 cambios de líder':'Close race: 5 lead changes','¡MÁXIMO!':'MAX!','¡Combo máximo x3!':'Max combo x3!','activa el TURBO 🚀':'activates TURBO 🚀','avanza y activa el TURBO 🚀':'advances and activates TURBO 🚀','comparte y suma +5':'shares and adds +5','gana al instante 🏆':'wins instantly 🏆','sigue y suma +3':'follows and adds +3','por tu regalo':'for your gift','por tus ':'for your ',' compartió · sumó taps para ':' shared · added taps for ',' · ¡TURBO! +':' · TURBO! +',' · ¡nuevo hincha de ':' · new fan of ',' · +10% y turbo para ':' · +10% and turbo for ',' · tocar para cambiar':' · tap to switch',' · ¡gracias!':' · thanks!','¡Gracias ':'Thanks ','! Hinchada de ':'! Fans of ',' por traer más hinchas!':' for bringing more fans!',' es hincha de ':' is a fan of ','¡Bienvenido a la familia, ':'Welcome to the family, ','Saludamos al hincha de ':'We greet the fan of ',' dice: ':' says: ','alguien':'someone',': en vivo':': live',': sin conexión':': offline',': conectando':': connecting','Inicio de carrera':'Race start','Cada hincha que escribe su equipo hace avanzar a su tortuga.':'Every fan who types their team moves their turtle forward.','Escribe el nombre de tu equipo en el chat para apoyarlo.':"Type your team's name in the chat to support it.",'Así se juega: tu equipo en el chat.':'How to play: type your team in the chat.','El ganador pasa a ':'The winner moves on to ','la siguiente ronda':'the next round','las semifinales':'the semifinals','la final':'the final','Límite de taps del turbo y versión':'Turbo tap limit and version','⚡ Límite ':'⚡ Limit ','Contador de ':'Counter of ','Hinchas de ':'Fans of ','Bandera de ':'Flag of ','Cuadro de ':'Bracket of ','Fixture del torneo: cuartos de final, semifinales y final':'Tournament fixture: quarterfinals, semifinals and final','Ruta ':'Track ',' con relieve':' with relief','MVP: ':'MVP: ','⏳ En curso':'⏳ In progress'};
 const FRAG=Object.keys(FRAG_SRC).sort((a,b)=>b.length-a.length).map(k=>[k,FRAG_SRC[k]]);
 const cache=new Map();
 function tr(x){
@@ -4770,11 +4831,7 @@ function voice(g){
  if(!info||(window.I18N&&window.I18N.en))return null; /* sin datos o ingles: el juego usa su texto original */
  const known=g.t>=0&&safe(()=>T[g.t]),team=known?nameOf(g.t):'',kind=known?kindOf(g.t):'';
  const what=g.gift?'por enviar '+(g.count>1?g.count+' ':'')+g.gift:(g.count===1?'por tu regalo':'por tus '+g.count+' regalos');
- let s='¡Gracias '+g.name+' '+what+'!';
- if(known)s+=' ¡Turbo activado para '+(kind==='país'?'el país ':'el equipo ')+team+'!';
- if(info.isNew&&!info.vNew)s+=' Y desde ahora '+g.name+' es miembro de honor: su nombre queda en el cuadro de honor'+(known?' y su '+kind+' acelera con cada regalo.':'.');
- else if(info.tierUp&&info.tier&&!info.vTier)s+=' ¡'+g.name+' sube a '+info.tier.lb.toLowerCase()+'!';
- else s+=' ¡Sigue siendo miembro de honor!';
+ let s='¡Gracias '+g.name+' '+what+'!'; /* REGLA 0-B: solo agradecimiento neutro */
  if(info.isNew)info.vNew=true;if(info.tierUp)info.vTier=true; /* la explicacion larga se dice una sola vez (la tarjeta conserva sus banderas) */
  return s;
 }
@@ -4795,15 +4852,13 @@ function renderCard(it){
  card.classList.toggle('t3',tr.k===3);
  const av=it.url?'<img alt="" referrerpolicy="no-referrer" src="'+esc(it.url)+'" onerror="this.replaceWith(document.createTextNode(\'🎁\'))">':esc(([...it.user][0]||'🎁').toUpperCase());
  const what=(it.gift?esc(it.gift):'¡Un regalo!')+(it.count>1?' ×'+it.count:'');
- const perks='<b class="tb">⚡ TURBO '+TURBO_S+'s</b><b>🚀 +10 m + 5 m/💎</b>'+(streak>=2?'<b class="st">🔥 RACHA ×'+streak+'</b>':'');
+ const perks='<b>🙌 ¡GRACIAS!</b>'; /* REGLA 0-B: sin insignias de beneficio, turbo, metros ni rachas de regalos */
  let title,why;
- if(it.isNew){title=tr.ic+' ¡NUEVO MIEMBRO DE HONOR!';why='Por su regalo entra al cuadro de honor'+(tm?' y su '+kindOf(it.t)+' acelera con turbo.':'.')}
- else if(it.tierUp){title=tr.ic+' ¡SUBE A '+tr.lb+'!';why=''}
- else{title=tr.ic+' '+tr.lb+' · '+it.total+' regalo'+(it.total>1?'s':'');why=''}
+ title='🙌 ¡Gracias por tu regalo!';why=''; /* REGLA 0-B: sin rangos ni cuadro de honor por regalos */
  cardIn.innerHTML='<div class="rb">🎁 ¡REGALO RECIBIDO!</div>'
   +'<div class="rw"><div class="av">'+av+'</div><div class="tx"><div class="un">@'+esc(it.user)+'</div><div class="wh">'+what+'</div>'
   +(tm?'<div class="tm">'+flagSvg(it.t)+'<span>'+esc(kindOf(it.t).toUpperCase()+' · '+nameOf(it.t))+'</span></div>':'')+'</div></div>'
-  +(tm?'<div class="pk">'+perks+'</div>':'<div class="pk"><b>🙌 ¡GRACIAS!</b>'+(streak>=2?'<b class="st">🔥 RACHA ×'+streak+'</b>':'')+'</div>')
+  +'<div class="pk">'+perks+'</div>'
   +'<div class="hn"><h3>'+title+'</h3>'+(why?'<p>'+esc(why)+'</p>':'')+'</div>';
 }
 function celebrate(it){
@@ -5031,7 +5086,7 @@ function onFull(i){
  }
 }
 function metaPop(s,n){
- const m=document.createElement('span');m.className='gt-meta';m.textContent='🎯 META '+n;
+ const m=document.createElement('span');m.className='gt-meta';m.textContent='🎯 HONOR '+n;
  s.h.appendChild(m);setTimeout(()=>m.remove(),1500);
 }
 st.forEach((s,i)=>{
@@ -5403,7 +5458,9 @@ let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
  {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
-function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)})}
+function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)});
+ /* REGLA 0-B: el agradecimiento por regalo conserva el texto de la experiencia del overlay y el cuadro de honor */
+ TB.levels.forEach(l=>{if(l&&l.id==='gift')l.say='Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'})}
 ensureLevels();
 function normalizeEnabledLevels(source){
  const enabledByDefault=new Set(['gift','move','chat','turbo','featured','match']);
@@ -5933,6 +5990,26 @@ schedule();
 @keyframes metaShine{0%,100%{fill:#ffe14d;filter:drop-shadow(0 0 3px #ffd566)}35%{fill:#fff;filter:drop-shadow(0 0 8px #fff)}70%{fill:#ff9a3d;filter:drop-shadow(0 0 7px #ff7a1a)}}
 @media (prefers-reduced-motion:reduce){.sv>svg>text.meta-label{animation:none}}
 </style>
+<style id="donor-honor-css">
+/* REGLA 0-B: sin contador de regalos a la vista (sigue en el DOM porque lo usan otros scripts) */
+#giftCounter,.gift-total{display:none!important}
+/* CUADRO DE HONOR POR EQUIPO: arriba de la pista, debajo del contador. Autorizado por el autor (ver REGLA 0, EXCEPCION 1). */
+.donor-marker{display:none!important}
+.donor-honor{box-sizing:border-box;flex:none;display:flex;align-items:center;gap:5px;min-height:34px;padding:2px 5px;border:2px solid #ffe14d;border-radius:10px;background:linear-gradient(#3a2409,#150c03);box-shadow:0 0 8px 1px rgba(255,225,77,.45);color:#fff;font-family:Inter,sans-serif;overflow:hidden;pointer-events:none}
+.donor-honor .dh-title{flex:none;font:900 8px/1 Inter,sans-serif;color:#ffe14d;letter-spacing:.4px;text-shadow:0 1px 2px #000;writing-mode:horizontal-tb}
+.donor-honor.empty{justify-content:center}
+.donor-honor:not(.empty) .dh-title{display:none}
+.donor-honor .dh-av{flex:none;width:28px;height:28px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#3f2713;border:2px solid #ffe14d;box-shadow:0 0 0 1px #fff;font:900 13px/1 Inter,sans-serif}
+.donor-honor .dh-av img{width:100%;height:100%;object-fit:cover;display:block}
+.donor-honor .dh-tx{display:flex;flex-direction:column;min-width:0;gap:2px}
+.donor-honor .dh-un{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:900 10px/1.1 Inter,sans-serif;text-shadow:0 1px 2px #000}
+.donor-honor .dh-gift{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 9px/1.1 Inter,sans-serif;font-style:normal;color:#ffe14d}
+.donor-honor.drop .dh-av{animation:dhDrop .7s cubic-bezier(.3,1.4,.5,1) both}
+.donor-honor.drop .dh-tx{animation:dhFade .5s ease-out both}
+@keyframes dhDrop{0%{transform:translateY(-46px) scale(.6);opacity:0}70%{opacity:1}100%{transform:none;opacity:1}}
+@keyframes dhFade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.donor-honor.drop .dh-av,.donor-honor.drop .dh-tx{animation:none}}
+</style>
 <style id="notification-layer">
 #event-alerts,#toast,#hype,.ev{z-index:13!important}
 </style>
@@ -5941,27 +6018,65 @@ schedule();
  'use strict';
  const lanes=document.getElementById('lanes');if(!lanes||!window.SRV)return;
  const STORE='cluss.honorLastGiftTeams';
+ const HONOR_BOX=true;
  const saved=window.SRV.get(STORE,{});
  const state=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
  if(!state.teams||typeof state.teams!=='object')state.teams={};
  const https=v=>/^https:\/\//i.test(String(v||''));
+ /* Se guarda en la forma del servidor (byTeam + left/right); misma clave, mismo PUT */
  function save(){window.SRV.set(STORE,state)}
  function saveSides(){
   const swapped=lanes.classList.contains('swapped'),left=swapped?T[1]:T[0],right=swapped?T[0]:T[1];
   state.leftTeamId=left&&left.id||'';state.rightTeamId=right&&right.id||'';save();
  }
- function render(i){
-  const sv=document.getElementById('sv'+i);if(!sv)return;
-  let marker=sv.querySelector('.donor-marker');
-  if(!marker){marker=document.createElement('div');marker.className='donor-marker';marker.setAttribute('aria-label','Último donador del equipo');sv.appendChild(marker)}
-  const record=state.teams[T[i]&&T[i].id];
+ function render(i,drop){
+  const sv=document.getElementById('sv'+i),lane=document.getElementById('ln'+i);if(!sv)return;
+  const team=T[i];
+  const record=state.teams[team&&team.id];
+  const marker=sv.querySelector('.donor-marker')||document.createElement('div');
+  marker.className='donor-marker';
+  marker.hidden=!record;
   marker.replaceChildren();
-  if(!record){marker.hidden=true;return}
-  marker.hidden=false;
-  if(https(record.avatarUrl)){const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;marker.appendChild(image)}
-  else{const initial=document.createElement('span');initial.className='avatar';initial.textContent=String(record.displayName||record.username||'?').trim().charAt(0).toUpperCase();marker.appendChild(initial)}
-  const username=document.createElement('span');username.className='username';username.textContent='@'+String(record.username||'').replace(/^@+/,'');marker.appendChild(username);
-  marker.title='Último donador de '+(T[i].n||T[i].id)+': @'+String(record.username||'');
+  if(record){
+   const avatar=document.createElement('span');avatar.className='avatar';
+   const username=document.createElement('span');username.className='username';username.textContent='@'+String(record.username||'').replace(/^@+/,'');
+   const initial=String(record.username||record.displayName||'?').replace(/^@+/,'').trim().charAt(0).toUpperCase();
+   if(https(record.avatarUrl)){
+    const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;
+    image.onerror=()=>{image.remove();avatar.textContent=initial};
+    avatar.appendChild(image);
+   } else {
+    avatar.textContent=initial;
+   }
+   marker.appendChild(avatar);marker.appendChild(username);
+   if(sv.contains&&!sv.contains(marker))sv.appendChild(marker);
+   else if(!sv.contains)sv.appendChild(marker);
+  } else if(sv.contains&&sv.contains(marker)){
+   marker.remove();
+  }
+  if(!lane){return}
+  if(!HONOR_BOX){const ex=lane.querySelector('.donor-honor');if(ex)ex.remove();return}
+  let box=lane.querySelector('.donor-honor');
+  if(!box){box=document.createElement('div');box.className='donor-honor';box.setAttribute('aria-label','Cuadro de honor del equipo');lane.insertBefore(box,sv);try{window.dispatchEvent(new Event('resize'))}catch(e){}}
+  box.replaceChildren();box.classList.remove('drop');
+  const head=document.createElement('span');head.className='dh-title';head.textContent='🏅 HONOR';box.appendChild(head);
+  if(!record){box.classList.add('empty');return}
+  box.classList.remove('empty');
+  const av=document.createElement('span');av.className='dh-av';
+  const initial=String(record.username||record.displayName||'?').replace(/^@+/,'').trim().charAt(0).toUpperCase();
+  if(https(record.avatarUrl)){
+   const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;
+   image.onerror=()=>{image.remove();av.textContent=initial;console.warn('Honor: no cargo la foto de @'+record.username+' (¿firma vencida o bloqueada por el CDN?)')};
+   av.appendChild(image);
+  } else {
+   av.textContent=initial;
+  }
+  const txt=document.createElement('span');txt.className='dh-tx';
+  const un=document.createElement('b');un.className='dh-un';un.textContent='@'+String(record.username||'').replace(/^@+/,'');
+  const gf=document.createElement('i');gf.className='dh-gift';gf.textContent='';
+  txt.append(un,gf);box.append(av,txt);
+  box.title='Honor · '+(team&&team.n||team&&team.id)+': @'+String(record.username||'');
+  if(drop){void box.offsetWidth;box.classList.add('drop')}
  }
  function renderAll(){saveSides();[0,1].forEach(render)}
  function remember(i,e){
@@ -5970,8 +6085,8 @@ schedule();
   state.teams[team.id]={teamId:team.id,teamName:team.n,username,displayName:String(e.displayName||username),
    avatarUrl:[e.profilePictureUrl,e.profilePicture,e.avatarUrl,e.avatar,e.userImage,e.imageUrl].find(https)||'',
    giftName:String(e.giftName||e.gift_name||e.gift||''),giftDiamonds:Number(e.giftDiamonds)||0,
-   activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:e.receivedAt||new Date().toISOString()};
-  saveSides();save();render(i);
+   activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:Number(e.receivedAt)||Date.now()};
+  saveSides();save();render(i,true);
  }
  /* Solo guarda la atribucion del regalo que el motor asigno realmente a ese equipo. */
  let pending=null;

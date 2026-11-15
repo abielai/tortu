@@ -2407,6 +2407,70 @@ test('country recognition accepts names and ISO codes', () => {
   assert.equal(identifyCountry('🇬🇧')?.code, 'GB');
 });
 
+test('a country mentioned in chat switches the user and following taps to the named lane', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const findTeamSource = html.match(/function findTeam\(text\)\{[\s\S]*?\n\}/)?.[0];
+  const handlerSource = html.match(/function handleLiveEntry\(entry\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(findTeamSource);
+  assert.ok(handlerSource);
+
+  const taps = [], totals = [], laneInteractions = [];
+  const teams = [
+    { id: 'ca-py', n: 'PARAGUAY', aliases: ['PARAGUAY'] },
+    { id: 'ca-ar', n: 'ARGENTINA', aliases: ['ARGENTINA'] }
+  ];
+  const picks = new Map([['fan', 0]]), recentChatPicks = new Map(), lastChat = new Map();
+  const liveWindow = {
+    resolveSupportTeamFor: username => picks.get(username) ?? -1,
+    addTeamEventTotal: (team, count) => totals.push({ team, count }),
+    recordLiveTap: (team, count) => taps.push({ team, count })
+  };
+  let now = 10000;
+  const context = {
+    T: teams,
+    tournamentMode: 'countries',
+    tournamentItem: id => teams.find(team => team.id === id),
+    poolForMode: () => ({}),
+    picks,
+    recentChatPicks,
+    recentChatTeam: username => recentChatPicks.get(username)?.team ?? -1,
+    lastChat,
+    sel: 0,
+    window: liveWindow,
+    TAP_POLICY: {
+      statEventDelta: (type, count) => type === 'chat' ? 5 : count,
+      tapEventDelta: (type, count) => type === 'chat' ? 10 : type === 'like' ? count : 0
+    },
+    trackTournamentMentions: () => false,
+    trackLaneInteraction: team => laneInteractions.push(team),
+    push() {},
+    Date: class extends Date { static now() { return now; } }
+  };
+  runInNewContext(`${findTeamSource}\n${handlerSource}\nglobalThis.handleLiveEntry=handleLiveEntry;`, context);
+
+  const chat = comment => normalizeTikTokEvent('chat', {
+    comment,
+    user: { uniqueId: 'fan', nickname: 'Fan' }
+  });
+  const like = count => normalizeTikTokEvent('like', {
+    user: { uniqueId: 'fan', nickname: 'Fan' },
+    likeCount: count
+  });
+
+  context.handleLiveEntry(chat('Yo apoyo a Argentina'));
+  assert.equal(picks.get('fan'), 1);
+  context.handleLiveEntry(like(2));
+  assert.deepEqual(taps.map(item => item.team), [1, 1]);
+  assert.deepEqual(totals.map(item => item.team), [1, 1]);
+
+  now += 8001;
+  context.handleLiveEntry(chat('Paraguay'));
+  assert.equal(picks.get('fan'), 0);
+  context.handleLiveEntry(like(1));
+  assert.deepEqual(taps.map(item => item.team), [1, 1, 0, 0]);
+  assert.deepEqual(laneInteractions, ['ca-ar', 'ca-ar', 'ca-py', 'ca-py']);
+});
+
 test('PWA manifest is named Negocio and requests fullscreen with install icons', () => {
   const manifest = JSON.parse(readFileSync(new URL('./public/manifest.webmanifest', import.meta.url), 'utf8'));
   assert.equal(manifest.name, 'Negocio');
