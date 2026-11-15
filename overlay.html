@@ -470,7 +470,7 @@ body{margin:0;background:var(--page);font-family:Inter,system-ui,sans-serif;colo
 .fl{position:absolute;left:55%;font-weight:800;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none;animation:up .9s forwards}
 @keyframes up{from{opacity:1;transform:translate(-50%,0)}to{opacity:0;transform:translate(-50%,-40px)}}
 .side{display:flex;flex-direction:column;align-items:center}
-.live{background:#e11d48;border-radius:6px;padding:5px 9px;font-weight:800;box-shadow:0 0 8px #e11d48}
+.live{background:#e11d48;border:0;border-radius:6px;padding:5px 9px;color:#fff;font:inherit;font-weight:800;box-shadow:0 0 8px #e11d48;cursor:pointer;touch-action:manipulation}
 .live.connected{background:#16a34a;box-shadow:0 0 8px #16a34a}
 .live.connecting{background:#d97706;box-shadow:0 0 8px #d97706}
 .bub{position:relative;background:#f1e8d6;color:#2a2018;border-radius:10px;font-weight:800;text-align:center;line-height:1.25;box-shadow:0 2px 4px rgba(0,0,0,.4);width:100%;align-items:center;justify-content:center}
@@ -823,7 +823,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
 <div class="win" id="win" role="alertdialog" aria-label="Ganador"></div>
 </section>
 <!-- Herramientas visibles: estado de conexión, ajuste del límite de taps y recarga. -->
-<div class="foot"><span class="live connecting" id="connection" role="status" aria-live="polite">conectando</span><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps del turbo en 10" title="Turbo: 10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps del turbo en 10" title="Turbo: 10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Herramientas del backend">⚙️</button></div>
+<div class="foot"><button class="live connecting" id="connection" type="button" aria-label="Conectando; tocar para cambiar de usuario" aria-live="polite">conectando</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps del turbo en 10" title="Turbo: 10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps del turbo en 10" title="Turbo: 10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Herramientas del backend">⚙️</button></div>
 <!-- FRANJA DE ESTADISTICAS del live: solo eventos REALES (los bots y los toques manuales no cuentan). -->
 <div class="evs" id="evs" role="status" aria-label="Estadisticas del live"><div class="st" data-k="member" title="Unidos"><b>👥</b><span>0</span></div><div class="st" data-k="chat" title="Comentarios"><b>💬</b><span>0</span></div><div class="st" data-k="like" title="Me gusta"><b>❤️</b><span>0</span></div><div class="st" data-k="follow" title="Seguidores nuevos"><b>➕</b><span>0</span></div><div class="st" data-k="share" title="Compartidos"><b>↗️</b><span>0</span></div></div>
 <button id="giftCounter" class="gift-total st" data-k="gift" type="button" aria-label="Regalos mostrados en esta sesión: 0" title="Regalos mostrados en esta sesión: 0"><span id="giftCount">0</span></button>
@@ -1469,7 +1469,7 @@ function setConnection(status){
  el.title=username?stateLabel+' a '+userLabel:stateLabel;
  el.classList.toggle('connected',connected);
  el.classList.toggle('connecting',!connected&&['connecting','reconnecting'].includes(status.status));
- el.setAttribute('aria-label',username?stateLabel+' a '+userLabel:stateLabel);
+ el.setAttribute('aria-label',(username?stateLabel+' a '+userLabel:stateLabel)+'; tocar para cambiar de usuario');
 }
 /* Conexion con el backend: eventos reales de TikTok por SSE */
 const receivedEvents=[];
@@ -4431,9 +4431,9 @@ render();
 #cronoRegalos{position:static;flex:0 0 auto;margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:6px;pointer-events:none}
 #cronoRegalos .race-clock-group{display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:auto}
 #cronoRegalos .race-loop-buttons{display:flex;align-items:center;justify-content:center;gap:2px}
-#paraguayVsLoop,#honorGiftToggle,#switchTikTokUser,#donTortuOverlayToggle{box-sizing:border-box;width:24px;height:18px;padding:0;border:1px solid #ffe14d;border-radius:4px;background:#28231a;color:#fff;font:12px/1 Inter,sans-serif;cursor:pointer;opacity:.75}
-#paraguayVsLoop.on,#honorGiftToggle.on,#donTortuOverlayToggle.on{background:#176b35;box-shadow:0 0 5px rgba(61,220,90,.8);opacity:1}
-#paraguayVsLoop:focus-visible,#honorGiftToggle:focus-visible,#switchTikTokUser:focus-visible,#donTortuOverlayToggle:focus-visible{outline:2px solid #fff;outline-offset:1px}
+#honorGiftToggle{box-sizing:border-box;width:24px;height:18px;padding:0;border:1px solid #ffe14d;border-radius:4px;background:#28231a;color:#fff;font:12px/1 Inter,sans-serif;cursor:pointer;opacity:.75}
+#honorGiftToggle.on{background:#176b35;box-shadow:0 0 5px rgba(61,220,90,.8);opacity:1}
+#honorGiftToggle:focus-visible{outline:2px solid #fff;outline-offset:1px}
 /* cronometro sin icono */
 #cronoRegalos #crono{box-sizing:border-box;height:26px;display:flex;align-items:center;gap:4px;padding:0 7px;border-radius:7px;background:#0b0b0b;border-style:solid;border-width:2px;font:800 15px/1 Inter,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.3px;white-space:nowrap;position:static;text-align:left;text-shadow:0 1px 2px #000}
 #cronoRegalos #crono{border-color:#5ec3f2;box-shadow:0 2px 5px rgba(0,0,0,.7),0 0 7px rgba(94,195,242,.5);color:#fff}
@@ -4451,58 +4451,33 @@ render();
  race.append(raceIcon,raceTx);
  const raceGroup=document.createElement('div');raceGroup.className='race-clock-group';
  const buttons=document.createElement('div');buttons.className='race-loop-buttons';
- const loopButton=document.createElement('button');loopButton.id='paraguayVsLoop';loopButton.type='button';loopButton.textContent='🇵🇾';loopButton.title='Alternar Olimpia-Cerro y Barcelona-Real Madrid';loopButton.setAttribute('aria-label','Alternar entre el Superclásico paraguayo y El Clásico');
  const giftToggle=document.createElement('button');giftToggle.id='honorGiftToggle';giftToggle.type='button';giftToggle.textContent='⚽';giftToggle.title='Mostrar regalos de Honor';giftToggle.setAttribute('aria-label','Mostrar regalos de Honor');
- const switchUserButton=document.createElement('button');switchUserButton.id='switchTikTokUser';switchUserButton.type='button';switchUserButton.textContent='👤';switchUserButton.title='Cambiar al siguiente usuario guardado';switchUserButton.setAttribute('aria-label','Cambiar al siguiente usuario guardado');
- const tortuToggle=document.createElement('button');tortuToggle.id='donTortuOverlayToggle';tortuToggle.type='button';tortuToggle.textContent='🐢';
- window.updateDonTortuButton=enabled=>{
-  tortuToggle.classList.toggle('on',enabled);
-  tortuToggle.setAttribute('aria-pressed',String(enabled));
-  tortuToggle.title=enabled?'Desactivar voz y avatar de Don Tortu':'Activar voz y avatar de Don Tortu';
-  tortuToggle.setAttribute('aria-label',tortuToggle.title);
- };
- window.updateDonTortuButton(window.donTortuEnabled!==false);
- window.addEventListener('voice-config-update',event=>{
-  if(typeof event.detail?.donTortuEnabled==='boolean')window.updateDonTortuButton(event.detail.donTortuEnabled);
- });
- tortuToggle.addEventListener('click',async()=>{
-  if(tortuToggle.disabled)return;
-  tortuToggle.disabled=true;
-  try{
-   const response=await fetch('/api/overlay/don-tortu',{method:'POST',headers:{'X-Overlay-Control':'don-tortu'}});
-   const result=await response.json();
-   if(!response.ok||result.ok!==true)throw new Error(result.message||`HTTP ${response.status}`);
-   window.setDonTortuEnabled(result.donTortuEnabled);
-   toast(result.donTortuEnabled?'Don Tortu activado':'Don Tortu desactivado','🐢');
-  }catch(error){
-   toast('No se pudo cambiar Don Tortu: '+error.message,'⚠️');
-   console.error('No se pudo cambiar Don Tortu desde las herramientas del overlay.',error);
-  }finally{setTimeout(()=>{tortuToggle.disabled=false},500)}
- });
- switchUserButton.addEventListener('click',async()=>{
-  if(switchUserButton.disabled)return;
-  switchUserButton.disabled=true;
-  try{
-   const response=await fetch('/api/connect/next',{method:'POST',headers:{'X-Overlay-Control':'switch-user'}});
-   const result=await response.json();
-   if(!response.ok)throw new Error(result.message||`HTTP ${response.status}`);
-   switchUserButton.title=`Conectando a @${result.username}`;
-   switchUserButton.setAttribute('aria-label',`Conectando a @${result.username}`);
-   toast(`Conectando a @${result.username}`,'👤');
-  }catch(error){
-   switchUserButton.title='No se pudo cambiar de usuario';
-   switchUserButton.setAttribute('aria-label','No se pudo cambiar de usuario');
-   toast('No se pudo cambiar de usuario: '+error.message,'⚠️');
-   console.error('No se pudo cambiar al siguiente usuario guardado.',error);
-  }finally{setTimeout(()=>{switchUserButton.disabled=false},1800)}
- });
- buttons.append(loopButton,giftToggle,switchUserButton,tortuToggle);raceGroup.append(race,buttons);w.append(c,raceGroup);
+ buttons.append(giftToggle);raceGroup.append(race,buttons);w.append(c,raceGroup);
  const ft=document.querySelector('#topbar .foot')||document.querySelector('.foot');if(ft)ft.appendChild(w);else document.getElementById('topbar').appendChild(w);
  let timerStartedAt=Date.now();
  const p=n=>String(n).padStart(2,'0');
  function tick(){const s=Math.max(0,Math.floor((Date.now()-timerStartedAt)/1000)),t=p(Math.floor(s/3600))+':'+p(Math.floor(s%3600/60))+':'+p(s%60);if(tx.textContent!==t){tx.textContent=t;c.setAttribute('aria-label','Tiempo activo '+t)}}
  function tickRace(){const s=Math.max(0,Math.floor(window.getRaceElapsedMs()/1000)),t=p(Math.floor(s/60))+':'+p(s%60);if(raceTx.textContent!==t){raceTx.textContent=t;race.setAttribute('aria-label','Duración de la carrera '+t)}}
  tick();tickRace();setInterval(()=>{tick();tickRace()},1000);
+ const connectionButton=document.getElementById('connection');
+ if(connectionButton)connectionButton.addEventListener('click',async()=>{
+  if(connectionButton.disabled)return;
+  connectionButton.disabled=true;
+  try{
+   const response=await fetch('/api/connect/next',{method:'POST',headers:{'X-Overlay-Control':'switch-user'}});
+   const result=await response.json();
+   if(!response.ok||result.ok!==true)throw new Error(result.message||`HTTP ${response.status}`);
+   const username=String(result.username||'').trim().replace(/^@+/,'');
+   if(!username)throw new Error('El backend no devolvió un usuario para conectar.');
+   connectionButton.textContent='@'+username;
+   connectionButton.title='Conectando a @'+username;
+   connectionButton.setAttribute('aria-label',connectionButton.title+'; tocar para cambiar de usuario');
+   toast('Conectando a @'+username,'👤');
+  }catch(error){
+   toast('No se pudo cambiar de usuario: '+error.message,'⚠️');
+   console.error('No se pudo cambiar al siguiente usuario guardado.',error);
+  }finally{setTimeout(()=>{connectionButton.disabled=false},1800)}
+ });
  const toolsSource=new EventSource('/api/game-tools/events');
  const overlayClientId=window.crypto&&window.crypto.randomUUID
   ?window.crypto.randomUUID()
@@ -5433,7 +5408,7 @@ const TRACK=()=>+TB.trackMeters||100;
 window.getRaceTrackMeters=TRACK;
 const fill=(s,o)=>String(s||'').replace(/\{(\w+)\}/g,(_,k)=>o[k]==null?'':o[k]);
 /* 3) Voz y cola */
-const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set();let cur=null,finishActiveSpeech=null,lastEv=0,lastMatch=0,primed=false,queueGeneration=0;
+const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set(),interactionTimes=[],milestones=[20,50,80,90],spokenMilestones=new Set();let cur=null,finishActiveSpeech=null,lastEv=0,primed=false,queueGeneration=0;
 const phraseCooldownMs=()=>Math.max(1,Math.min(1440,Number(TB.repeatCooldownMinutes)||1))*60000;
 function purgePhraseDictionary(now=Date.now()){for(const[key,phrase]of phraseDictionary)if(phrase.expiresAt<=now)phraseDictionary.delete(key)}
 function phraseKey(text){return String(text||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ')}
@@ -5458,7 +5433,7 @@ window.addEventListener('voice-config-update',event=>{
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
 const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
-window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
+window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
 const sameVoice=(a,b)=>!!a&&!!b&&(a===b||(a.voiceURI&&a.voiceURI===b.voiceURI)||(a.name===b.name&&a.lang===b.lang));
@@ -5467,6 +5442,18 @@ const pickNotificationVoice=()=>{
  return voices.find(voice=>/^es/i.test(voice.lang)&&!sameVoice(voice,commentator))||commentator;
 };
 function releasePending(item){if(item&&item.phraseKey)pendingPhrases.delete(item.phraseKey)}
+function pruneInteractions(now=Date.now()){
+ while(interactionTimes.length&&now-interactionTimes[0]>=60000)interactionTimes.shift();
+ return interactionTimes.length;
+}
+function silenceCommentator(){
+ for(let i=Q.length-1;i>=0;i--)if(Q[i].id==='match'){releasePending(Q[i]);Q.splice(i,1)}
+ if(cur&&cur.id==='match'){
+  queueGeneration++;cur=null;finishActiveSpeech=null;
+  try{SS.cancel()}catch(error){console.error('No se pudo silenciar al comentarista.',error)}
+ }
+ pump();
+}
 function purge(){const n=Date.now();for(let i=Q.length-1;i>=0;i--)if(Q[i].ttl>0&&n-Q[i].at>Q[i].ttl){releasePending(Q[i]);Q.splice(i,1)}}
 function clearLegacyQueues(){
  if(typeof voiceQueue!=='undefined')voiceQueue.length=0;
@@ -5531,6 +5518,8 @@ function moveText(user,to,prev){
 }
 function onEvent(e){
  if(!e||e.bot)return;const t=e.type;if(!['member','chat','gift','like','follow','share'].includes(t))return;
+ interactionTimes.push(Date.now());
+ if(pruneInteractions()>20)silenceCommentator();
  const eventLevel=t==='gift'?'gift':t==='chat'?'chat':t==='member'?'welcome':'action';if(!levelEnabled(eventLevel))return;
  const user=clean(e.displayName||e.username);if(!user||safe(()=>over))return;lastEv=Date.now();
  const uk=String(e.username||'').trim().toLowerCase(),now0=Date.now();
@@ -5581,19 +5570,24 @@ function describe(kind){
  const a=mts(0),b=mts(1),li=a>=b?0:1,oi=1-li;
  const o={lead:nm(li),leadM:mts(li),other:nm(oi),otherM:mts(oi),left:TRACK()-mts(li),track:TRACK()};
  const L=LV('match').say||{};
- return fill(kind==='final'?L.final:kind==='win'?L.win:kind==='start'?L.start:L.normal,o);
+ const narration=fill(kind==='final'?L.final:kind==='win'?L.win:kind==='start'?L.start:L.normal,o);
+ const losing=a===b?(EN()?'The teams are tied; no team is behind.':'Los equipos están empatados; nadie va perdiendo.'):
+  (EN()?nm(oi)+' is losing.':nm(oi)+' va perdiendo.');
+ return narration+' '+losing;
 }
 setInterval(()=>{
- if(safe(()=>over)||mute())return;const L=LV('match'),n=Date.now();
- if(cur||Q.length||n-lastEv<(L.quietMs||3500)||n-lastMatch<(L.everyMs||14000))return;
- lastMatch=n;const m=Math.max(mts(0),mts(1));
- say('match',describe(m>=90?'final':'normal'));
+ if(safe(()=>over))return;
+ const meters=Math.max(mts(0),mts(1)),busy=pruneInteractions()>20;
+ milestones.forEach(milestone=>{
+  if(meters<milestone||spokenMilestones.has(milestone))return;
+  spokenMilestones.add(milestone);
+  if(!busy)say('match',(EN()?'Race passes ':'La carrera supera los ')+milestone+(EN()?' meters. ':' metros. ')+describe('normal'));
+ });
 },1000);
 const _cr=M.completeRound;
-if(typeof _cr==='function')M.completeRound=function(w){const r=_cr.apply(this,arguments);clearQueue();
- safe(()=>{const i=T.findIndex(t=>t.id===w);if(i>=0){const o={lead:nm(i),track:TRACK()};lastMatch=Date.now();say('match',fill(LV('match').say.win,o),true)}});return r};
+if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arguments);clearQueue();return r};
 if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(this,arguments);
- clearQueue();side.clear();lastMatch=Date.now();lastEv=0;setTimeout(()=>say('match',describe('start')),1500);return r}}
+ clearQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();return r}}
 window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues};
 })();
 </script>
@@ -5623,7 +5617,7 @@ const safe=f=>{try{return f()}catch(e){return undefined}};
 const M=window.liveEventMonitor;
 if(!M||!safe(()=>CLASSIC_DEFS)||!safe(()=>SRV)||!safe(()=>T)||!safe(()=>P))return;
 const K='cluss.vs',key=(a,b)=>[a,b].sort().join('|');
-const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=7,PREVIOUS_CONFIG_VERSION=6,LEGACY_CONFIG_VERSION=5,OLDER_CONFIG_VERSION=4;
+const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=8,PREVIOUS_CONFIG_VERSION=7,LEGACY_CONFIG_VERSION=6,OLDER_CONFIG_VERSION=5;
 const nmOf=id=>{const n=String(safe(()=>tournamentItem(id).n)||id);return n[0]+n.slice(1).toLowerCase()};
 const DEF=CLASSIC_DEFS.map(d=>({k:key(d[0],d[1]),a:d[0],b:d[1],n:d[2],on:STARTER_KEYS.has(key(d[0],d[1])),popular:STARTER_KEYS.has(key(d[0],d[1]))}));
 /* ---------- LISTA + ESTADISTICAS (documento del SERVIDOR: GET/PUT /api/state/cluss.vs) ---------- */
@@ -5631,8 +5625,8 @@ const raw=safe(()=>SRV.get(K,null))||{};
 const hasCurrentConfig=raw.v===CONFIG_VERSION;
 const hasPreviousConfig=raw.v===PREVIOUS_CONFIG_VERSION;
 const hasModernConfig=hasCurrentConfig||hasPreviousConfig;
-const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION,3].includes(raw.v)&&Array.isArray(raw.list));
-const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||[LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION].includes(raw.v))&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:hasCurrentConfig?raw.loopEnabled!==false:false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts!==false:true,list:[]};
+const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION,4,3].includes(raw.v)&&Array.isArray(raw.list));
+const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||[LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION].includes(raw.v))&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:hasCurrentConfig?raw.loopEnabled!==false:false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts===true:false,list:[]};
 (hasStoredConfig&&Array.isArray(raw.list)?raw.list:[]).forEach(x=>{const d=DEF.find(y=>y.k===x.k);if(d&&!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d,{on:x.on!==false,popular:hasModernConfig?x.popular===true:STARTER_KEYS.has(x.k)}))});
 DEF.forEach(d=>{if(!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d))}); /* VS nuevos al final */
 const save=()=>safe(()=>SRV.set(K,{v:CONFIG_VERSION,cur:D.cur,np:D.np,list:D.list.map(x=>({k:x.k,on:x.on,popular:x.popular})),raceList:D.raceList.map(x=>({k:x.k,played:x.played})),st:D.st,loopEnabled:D.loopEnabled,showHonorGifts:D.showHonorGifts}));
@@ -5847,7 +5841,7 @@ schedule();
 #lanes.swapped{flex-direction:row-reverse}
 </style>
 <style id="right-sidebar-lowered">
-.side>#honor,.side>#copas,.side>#evs,.side>.foot,.side>#cronoRegalos{transform:translateY(8px)!important}
+.side>#honor,.side>#copas,.side>#evs,.side>.foot,.side>#cronoRegalos{transform:none!important;margin-top:8px!important}
 </style>
 </body>
 </html>

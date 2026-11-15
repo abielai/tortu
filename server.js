@@ -158,10 +158,10 @@ function configuredUsername(savedUsername = settings.username) {
   return normalizeUsername(savedUsername || process.env.TIKTOK_USERNAME || 'tortulive');
 }
 
-function usernameHistory() {
+function usernameHistory(saved = settings.savedUsernames, selected = configuredUsername()) {
   const usernames = [];
   const seen = new Set();
-  for (const value of [configuredUsername(), 'radiofenica', 'reciclemaiis', 'tortulive', ...(Array.isArray(settings.savedUsernames) ? settings.savedUsernames : [])]) {
+  for (const value of [...(Array.isArray(saved) ? saved : []), selected, 'radiofenica', 'reciclemaiis', 'tortulive']) {
     if (typeof value !== 'string') continue;
     const username = normalizeUsername(value);
     const key = username.toLowerCase();
@@ -2183,6 +2183,7 @@ async function main() {
 export {
   normalizeUsername,
   configuredUsername,
+  usernameHistory,
   nextSavedUsername,
   normalizeTikTokEvent,
   comboDelta,

@@ -161,11 +161,101 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   legacyQueues.narratorQueue.push({ text: 'old narrator' });
   window.liveEventMonitor.completeRound('ol');
   assert.equal(window.getVoiceMonitorState().queue.length, 0);
-  assert.match(window.getVoiceMonitorState().current, /Gana Olimpia/);
+  assert.equal(window.getVoiceMonitorState().current, '');
   for (const queue of Object.values(legacyQueues)) assert.equal(queue.length, 0);
   assert.equal(sandbox.activeVoiceRequest, null);
   assert.equal(sandbox.giftSpeaking, false);
   assert.equal(sandbox.giftSpeechGeneration, 1);
+});
+
+test('main voice announces only the four milestones and names the losing team', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const spoken = [];
+  const intervals = [];
+  const timers = [];
+  const browser = {
+    window: {
+      speechSynthesis: {
+        speak: utterance => spoken.push(utterance),
+        cancel() {},
+        getVoices: () => [],
+        addEventListener() {}
+      },
+      liveEventMonitor: { receive(event) { return event; }, completeRound() {} },
+      I18N: { en: false },
+      addEventListener() {}
+    },
+    T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
+    S: [{ p: 0 }, { p: 0 }],
+    P: { vo: 1 },
+    over: false,
+    fetch: () => Promise.resolve({ ok: false }),
+    setInterval: (callback, ms) => { intervals.push({ callback, ms }); return intervals.length; },
+    setTimeout: callback => { timers.push(callback); return timers.length; },
+    clearTimeout() {},
+    addEventListener() {},
+    SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
+  };
+  runInNewContext(script, browser);
+  const announceMilestones = intervals.filter(interval => interval.ms === 1000).at(-1).callback;
+  for (const [index, milestone] of [20, 50, 80, 90].entries()) {
+    browser.S[0].p = milestone;
+    announceMilestones();
+    assert.match(spoken[index].text, new RegExp(`${milestone} metros`));
+    assert.match(spoken[index].text, /Cerro va perdiendo/);
+    spoken[index].onend();
+    while (timers.length) timers.shift()();
+  }
+  browser.S[0].p = 100;
+  announceMilestones();
+  assert.equal(spoken.length, 4);
+  assert.deepEqual(Array.from(browser.window.getVoiceMonitorState().spokenMilestones), [20, 50, 80, 90]);
+});
+
+test('main voice is silenced only after more than twenty live interactions in a minute', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const intervals = [];
+  let cancelCount = 0;
+  const browser = {
+    window: {
+      speechSynthesis: {
+        speak() {},
+        cancel() { cancelCount++; },
+        getVoices: () => [],
+        addEventListener() {}
+      },
+      liveEventMonitor: { receive(event) { return event; } },
+      I18N: { en: false },
+      addEventListener() {}
+    },
+    T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
+    S: [{ p: 0 }, { p: 0 }],
+    P: { vo: 1 },
+    over: false,
+    fetch: () => Promise.resolve({ ok: false }),
+    setInterval: (callback, ms) => { intervals.push({ callback, ms }); return intervals.length; },
+    setTimeout: () => 0,
+    clearTimeout() {},
+    addEventListener() {},
+    SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
+  };
+  runInNewContext(script, browser);
+  browser.S[0].p = 20;
+  intervals.filter(interval => interval.ms === 1000).at(-1).callback();
+  assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+  for (let index = 0; index < 20; index++) {
+    browser.window.liveEventMonitor.receive({ type: 'follow', username: `fan${index}` });
+  }
+  assert.equal(browser.window.getVoiceMonitorState().interactionCountLastMinute, 20);
+  assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+  browser.window.liveEventMonitor.receive({ type: 'follow', username: 'fan20' });
+  assert.equal(browser.window.getVoiceMonitorState().interactionCountLastMinute, 21);
+  assert.notEqual(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+  assert.equal(cancelCount, 1);
 });
 
 test('TikTok events flow through SSE and the voice queue in business-priority order', async () => {
@@ -285,6 +375,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     spoken[2].onend();
     await new Promise(resolve => setTimeout(resolve, 275));
     now += 4000;
+    browser.S[0].p = 20;
     matchTick();
     assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
     assert.equal(spoken[3]?.voice, commentatorVoice);
@@ -320,8 +411,11 @@ test('right sidebar places statistics, tools, and chronometer in separate vertic
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const eventScript = html.match(/<script id="evs-derecha-js">([\s\S]*?)<\/script>/)?.[1];
   const toolsScript = html.match(/<script id="herramientas-derecha-js">([\s\S]*?)<\/script>/)?.[1];
+  const loweredStyle = html.match(/<style id="right-sidebar-lowered">([\s\S]*?)<\/style>/)?.[1];
   assert.ok(eventScript);
   assert.ok(toolsScript);
+  assert.match(loweredStyle, /\.side>#honor,.side>#copas,.side>#evs,.side>\.foot,.side>#cronoRegalos\{transform:none!important;margin-top:8px!important\}/);
+  assert.doesNotMatch(loweredStyle, /donTortuAvatar|translateY/);
 
   const node = id => ({
     id,
@@ -359,8 +453,6 @@ test('right sidebar places statistics, tools, and chronometer in separate vertic
   assert.equal(clock.parentElement, side);
   assert.equal(foot.children.includes(clock), false);
   assert.equal(topbar.children.length, 0);
-  assert.match(html, /\.side>#honor,\.side>#copas,\.side>#evs,\.side>\.foot,\.side>#cronoRegalos\{transform:translateY\(8px\)!important\}/);
-  assert.doesNotMatch(html, /#donTortuAvatar\{[^}]*transform:translateY/);
 });
 
 test('backend voice setting controls Don Tortu avatar and speech', () => {
@@ -1051,7 +1143,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
     addEventListener(_type, handler) { this.click = handler; },
     setAttribute(name, value) { this[name] = value; },
   });
-  const loopButton = makeToggle(), giftToggle = makeToggle();
+  const giftToggle = makeToggle();
   const savedStates = [];
   let storedConfig = null;
   const window = {
@@ -1064,7 +1156,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   const context = {
     window,
     document: {
-      getElementById: id => id === 'app' ? app : id === 'paraguayVsLoop' ? loopButton : id === 'honorGiftToggle' ? giftToggle : null,
+      getElementById: id => id === 'app' ? app : id === 'honorGiftToggle' ? giftToggle : null,
       querySelector: () => foot,
       createElement: () => panel,
     },
@@ -1100,11 +1192,8 @@ test('overlay retains the active VS until inactivity and resets cups only on the
     ['cp|ol', false], ['ucl-bc|ucl-rm', false]
   ]);
   assert.equal(vs.data.loopEnabled, false);
-  assert.equal(vs.data.showHonorGifts, true);
-  assert.match(html, /loopButton\.id='paraguayVsLoop'/);
-  assert.match(html, /Rotar entre Olimpia-Cerro y Barcelona-Real Madrid/);
-  assert.equal(loopButton.classList.active, false);
-  assert.equal(giftToggle.classList.active, true);
+  assert.equal(vs.data.showHonorGifts, false);
+  assert.equal(giftToggle.classList.active, false);
   const currentKey = vs.data.cur;
   vs.data.loopEnabled = false;
   listeners.get('vs-config-update')({ detail: { enabledKeys: ['ucl-bc|ucl-rm'] } });
@@ -1129,15 +1218,15 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   vs.addCup('cp|ol', 'ol');
   assert.equal(vs.data.st['cp|ol'].cups.ol, 1);
   assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.st['cp|ol'].cups.ol === 1));
-  loopButton.click();
+  vs.setLoopEnabled(true);
   assert.equal(vs.data.loopEnabled, true);
   assert.deepEqual(Array.from(context.T, team => team.id), ['ol', 'cp']);
-  loopButton.click();
+  vs.setLoopEnabled(false);
   assert.equal(vs.data.loopEnabled, false);
   assert.deepEqual(Array.from(context.T, team => team.id), ['ucl-bc', 'ucl-rm']);
   giftToggle.click();
-  assert.equal(vs.data.showHonorGifts, false);
-  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.showHonorGifts === false));
+  assert.equal(vs.data.showHonorGifts, true);
+  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.showHonorGifts === true));
 
   listeners.get('vs-config-update')({ detail: {
     enabledKeys: ['cp|ol', 'ucl-bc|ucl-rm', 'lib-boc|lib-riv', 'cl-cel|cl-ran'],
@@ -1172,7 +1261,7 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   ]);
 
   storedConfig = {
-    v: 6,
+    v: 7,
     cur: 'cp|ol',
     np: 'lib-boc|lib-riv',
     list: [{ k: 'cp|ol', on: true, popular: true }],
@@ -1183,11 +1272,11 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   };
   savedStates.length = 0;
   runInNewContext(script, context);
-  assert.equal(window.gamiVS.data.showHonorGifts, true, 'old saved settings migrate back to visible gift details');
+  assert.equal(window.gamiVS.data.showHonorGifts, false, 'previously saved default-on gift display migrates to hidden');
   assert.equal(window.gamiVS.data.np, '');
   assert.equal(window.gamiVS.data.loopEnabled, false, 'old saved loop mode migrates to the two-classic rotation');
   assert.deepEqual(Array.from(window.gamiVS.data.raceList, item => [item.k, item.played]), [['cp|ol', true]]);
-  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 7 && item.value.showHonorGifts === true));
+  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 8 && item.value.showHonorGifts === false));
 });
 
 test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts local', async () => {
@@ -1409,8 +1498,8 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.match(html, /id="clearEvents"/);
     assert.match(html, /id="donTortuToggle"/);
     assert.match(html, /\$\('#voiceToggle'\)\.onclick=.*?;\s*loadVoice\(\);/);
-    assert.match(overlay, /tortuToggle\.id='donTortuOverlayToggle'/);
-    assert.match(overlay, /fetch\('\/api\/overlay\/don-tortu'/);
+    assert.doesNotMatch(overlay, /tortuToggle\.id='donTortuOverlayToggle'/);
+    assert.match(overlay, /function setDonTortuEnabled\(enabled\)/);
     assert.match(html, /id="applyEventFilters"/);
     assert.match(html, /\.event-row\[hidden\]\{display:none\}/);
     assert.match(html, /id="copyEvents"/);
@@ -1679,8 +1768,10 @@ test('overlay keeps its race design and opens monitor tabs matching the backend 
   }
   assert.doesNotMatch(html, /data-tab="narrador"/);
   assert.match(html, /data-tab="usuarios"[^>]*>👤 Usuarios<\/button><button data-tab="voz"[^>]*>♫ Voz/);
-  assert.match(html, /switchUserButton\.id='switchTikTokUser'/);
-  assert.match(html, /switchUserButton\.textContent='👤'/);
+  assert.match(html, /<button class="live connecting" id="connection" type="button"[^>]*>conectando<\/button>/);
+  assert.match(html, /connectionButton\.addEventListener\('click',async\(\)=>/);
+  assert.doesNotMatch(html, /switchUserButton\.id='switchTikTokUser'/);
+  assert.doesNotMatch(html, /switchUserButton\.textContent='👤'/);
   assert.match(html, /fetch\('\/api\/connect\/next',\{method:'POST',headers:\{'X-Overlay-Control':'switch-user'\}\}\)/);
   assert.match(server, /path === '\/api\/connect\/next' && req\.method === 'POST'/);
   assert.match(html, /addEventListener\('motor-state'/);
