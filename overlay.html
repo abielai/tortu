@@ -6064,6 +6064,13 @@ schedule();
  }
  /* Se guarda en la forma del servidor (byTeam + left/right); misma clave, mismo PUT */
  function save(){window.SRV.set(STORE,state)}
+ function persistGift(record){
+  if(!record.eventId)return;
+  fetch('/api/honor/team-gifts',{method:'POST',headers:{'content-type':'application/json','x-overlay-control':'gift-attribution'},
+   body:JSON.stringify({eventId:record.eventId,teamId:record.teamId})})
+   .then(async response=>{const result=await response.json();if(!response.ok)throw Error(result.message||response.status)})
+   .catch(error=>console.error('No se pudo guardar el regalo en el historial del equipo.',error));
+ }
  function saveSides(){
   const swapped=lanes.classList.contains('swapped'),left=swapped?T[1]:T[0],right=swapped?T[0]:T[1];
   state.leftTeamId=left&&left.id||'';state.rightTeamId=right&&right.id||'';save();
@@ -6107,11 +6114,12 @@ schedule();
  function remember(i,e){
   const team=T[i];if(!team||!e)return;
   const username=String(e.username||'').trim().replace(/^@+/,'');if(!username)return;
-  state.teams[team.id]={teamId:team.id,teamName:team.n,username,displayName:String(e.displayName||username),
+ const record={eventId:String(e.eventId||''),teamId:team.id,teamName:team.n,username,displayName:String(e.displayName||username),
    avatarUrl:donorAvatar(e,username),
    giftName:String(e.giftName||e.gift_name||e.gift||''),giftDiamonds:Number(e.giftDiamonds)||0,
-   activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:Number(e.receivedAt)||Date.now()};
-  saveSides();save();render(i,true);
+  activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:Number(e.receivedAt)||Date.now()};
+ state.teams[team.id]=record;
+ saveSides();save();persistGift(record);render(i,true);
  }
  /* Solo guarda la atribucion del regalo que el motor asigno realmente a ese equipo. */
  let pending=null;

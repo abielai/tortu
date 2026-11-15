@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { comboDelta, configuredUsername, dedupeEvent, handle, handleTikTokEvent, identifyCountry, nextSavedUsername, normalizeTikTokEvent, normalizeUsername, socialEventType } from './server.js';
 import voicePriority from './server/voice-priority.js';
@@ -258,6 +258,11 @@ test('last donors persist by team, render without gift details, and survive race
       get: key => savedStates[key],
       set: (key, value) => { savedStates[key] = value; }
     } },
+    giftAttributions: [],
+    fetch(url, options) {
+      context.giftAttributions.push({ url, options: JSON.parse(options.body) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) });
+    },
     avatarUrlCache: new Map(),
     document: {
       getElementById: id => id === 'lanes' ? lanes : id === 'sv0' ? sv[0] : id === 'sv1' ? sv[1] : id === 'ln0' ? laneNodes[0] : id === 'ln1' ? laneNodes[1] : null,
@@ -278,7 +283,7 @@ test('last donors persist by team, render without gift details, and survive race
   };
   runInNewContext(script, context);
   context.handleLiveEntry({
-    type: 'gift', username: 'ana', displayName: 'Ana', profilePictureUrl: 'https://example.test/ana.jpg',
+    type: 'gift', eventId: 'gift-ana-1', username: 'ana', displayName: 'Ana', profilePictureUrl: 'https://example.test/ana.jpg',
     giftName: 'Rosa', giftDiamonds: 1, activityCount: 2, receivedAt: '2025-01-01T00:00:00.000Z'
   });
   assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
@@ -289,6 +294,10 @@ test('last donors persist by team, render without gift details, and survive race
   assert.equal(honorAvatar.children[0].src, 'https://example.test/ana.jpg');
   const thanks = honorBoxes[0].children.find(child => child.className === 'dh-tx').children[0];
   assert.equal(thanks.textContent, 'Gracias @ana');
+  assert.deepEqual(context.giftAttributions, [{
+    url: '/api/honor/team-gifts',
+    options: { eventId: 'gift-ana-1', teamId: 'ol' }
+  }]);
   assert.doesNotMatch(markers[0].children.map(child => child.textContent).join(' '), /Rosa|🎁/);
   context.reset();
   assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
@@ -1190,6 +1199,74 @@ test('honor backend keeps the latest gift sender, avatar, and gift icon', async 
     } else {
       await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`, { method: 'DELETE' });
     }
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('team gift history appends real gifts by team with the newest first', async () => {
+  const archivePath = new URL('./data/team-gifts.jsonl', import.meta.url);
+  const hadArchive = existsSync(archivePath);
+  const previousArchive = hadArchive ? readFileSync(archivePath) : null;
+  const server = createServer((req, res) => void handle(req, res));
+  server.listen(0, '127.0.0.1');
+  await new Promise(resolve => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+
+  try {
+    const recordGift = async (id, username, teamId) => {
+      handleTikTokEvent('gift', {
+        msgId: id,
+        user: { uniqueId: username, nickname: username },
+        giftName: 'Rose',
+        giftId: 'rose',
+        diamondCount: 1
+      });
+      return fetch(`${baseUrl}/api/honor/team-gifts`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-overlay-control': 'gift-attribution',
+          origin: baseUrl
+        },
+        body: JSON.stringify({ eventId: id, teamId })
+      });
+    };
+
+    const firstId = `team-gift-history-${Date.now()}-1`;
+    const secondId = `team-gift-history-${Date.now()}-2`;
+    assert.equal((await recordGift(firstId, 'older-fan', 'cp')).status, 200);
+    assert.equal((await recordGift(secondId, 'newer-fan', 'cp')).status, 200);
+    const duplicate = await fetch(`${baseUrl}/api/honor/team-gifts`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-overlay-control': 'gift-attribution',
+        origin: baseUrl
+      },
+      body: JSON.stringify({ eventId: secondId, teamId: 'cp' })
+    });
+    assert.equal((await duplicate.json()).duplicate, true);
+
+    const historyResponse = await fetch(`${baseUrl}/api/honor/team-gifts`);
+    assert.equal(historyResponse.status, 200);
+    const history = await historyResponse.json();
+    assert.equal(history.countsByTeam.cp, 2);
+    assert.deepEqual(history.giftsByTeam.cp.map(record => record.username), ['newer-fan', 'older-fan']);
+    assert.equal(history.giftsByTeam.cp[0].eventId, secondId);
+
+    const invalid = await fetch(`${baseUrl}/api/honor/team-gifts`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-overlay-control': 'gift-attribution',
+        origin: baseUrl
+      },
+      body: JSON.stringify({ eventId: 'not-a-real-gift', teamId: 'cp' })
+    });
+    assert.equal(invalid.status, 400);
+  } finally {
+    if (hadArchive) writeFileSync(archivePath, previousArchive);
+    else rmSync(archivePath, { force: true });
     await new Promise(resolve => server.close(resolve));
   }
 });

@@ -2,8 +2,9 @@ import 'dotenv/config';
 import { createServer } from 'node:http';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { appendFile, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import voicePriority from './server/voice-priority.js';
 
@@ -16,6 +17,7 @@ const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 const MAX_BODY = 600 * 1024;
 const MAX_LOG_BATCH = 200;
+const MAX_TEAM_GIFT_HISTORY_ITEMS = 50;
 const RETENTION_DAYS = Math.min(90, Math.max(1, Number(process.env.LOG_RETENTION_DAYS) || 90));
 const EVENT_TYPES = new Set(['member', 'chat', 'gift', 'like', 'follow', 'share']);
 const COMMANDS = new Set(['refresh', 'turbo-down', 'turbo-up']);
@@ -121,6 +123,8 @@ const adminSessions = new Map();
 const recentUsers = [];
 const seenEventIds = new Map();
 const comboCounts = new Map();
+const acceptedTeamGifts = new Map();
+const teamGiftHistory = new Map();
 const technicalLogs = [];
 const pendingCountryComments = Object.fromEntries([...COUNTRIES.map(country => country.code), 'sin-pais'].map(code => [code, 0]));
 const connection = { connected: false, status: 'connecting', username: '' };
@@ -138,6 +142,7 @@ const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_TECHNICAL_LOGS = 200;
 const MAX_SAVED_USERNAMES = 24;
 let chatMetaQueue = Promise.resolve();
+let teamGiftArchiveQueue = Promise.resolve();
 let settings = {
   username: '',
   savedUsernames: ['tortulive'],
@@ -331,6 +336,86 @@ function rememberLatestHonorGift(entry) {
   const saved = latestHonorGift;
   honorGiftUpdateQueue = honorGiftUpdateQueue.catch(() => {}).then(() => setState('cluss.honorLastGift', saved));
   return honorGiftUpdateQueue;
+}
+
+const teamGiftArchivePath = resolve(DATA_DIR, 'team-gifts.jsonl');
+
+function cacheTeamGiftRecord(record) {
+  const team = teamGiftHistory.get(record.teamId) || { total: 0, records: [] };
+  team.total++;
+  team.records.unshift(record);
+  if (team.records.length > MAX_TEAM_GIFT_HISTORY_ITEMS) team.records.length = MAX_TEAM_GIFT_HISTORY_ITEMS;
+  teamGiftHistory.set(record.teamId, team);
+}
+
+function normalizeTeamGiftRecord(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const teamId = String(value.teamId || '');
+  const username = normalizeUsername(value.username);
+  const receivedAt = Number(value.receivedAt);
+  if (!TEAM_NAMES[teamId] || !username || !Number.isFinite(receivedAt)) return null;
+  return {
+    eventId: String(value.eventId || '').slice(0, 300),
+    teamId,
+    teamName: String(value.teamName || TEAM_NAMES[teamId]).slice(0, 80),
+    username,
+    displayName: String(value.displayName || username).slice(0, 100),
+    avatarUrl: /^https:\/\//i.test(String(value.avatarUrl || '')) ? String(value.avatarUrl).slice(0, 2000) : '',
+    giftName: String(value.giftName || 'Regalo').slice(0, 120),
+    giftDiamonds: Math.max(0, Number(value.giftDiamonds) || 0),
+    activityCount: Math.max(1, Math.floor(Number(value.activityCount) || 1)),
+    receivedAt
+  };
+}
+
+async function loadTeamGiftArchive() {
+  if (!existsSync(teamGiftArchivePath)) {
+    const saved = await getState('cluss.honorLastGiftTeams');
+    const records = { ...saved.value?.teams, ...saved.value?.byTeam };
+    const legacy = Object.entries(records)
+      .map(([teamId, value]) => normalizeTeamGiftRecord({
+        ...value,
+        teamId,
+        eventId: `legacy:${teamId}:${value?.receivedAt || 0}:${value?.username || ''}`
+      }))
+      .filter(Boolean);
+    if (legacy.length) {
+      await mkdir(dirname(teamGiftArchivePath), { recursive: true });
+      await writeFile(teamGiftArchivePath, `${legacy.map(record => JSON.stringify(record)).join('\n')}\n`, 'utf8');
+      legacy.forEach(cacheTeamGiftRecord);
+    }
+    return;
+  }
+
+  const lines = createInterface({ input: createReadStream(teamGiftArchivePath), crlfDelay: Infinity });
+  let lineNumber = 0;
+  for await (const line of lines) {
+    lineNumber++;
+    if (!line) continue;
+    let value;
+    try {
+      value = JSON.parse(line);
+    } catch (error) {
+      recordTechnicalLog('error', `Registro ${lineNumber} inválido en el historial de regalos por equipo: ${error.message}`);
+      continue;
+    }
+    const record = normalizeTeamGiftRecord(value);
+    if (!record) {
+      recordTechnicalLog('error', `Registro ${lineNumber} inválido en el historial de regalos por equipo.`);
+      continue;
+    }
+    cacheTeamGiftRecord(record);
+  }
+}
+
+function persistTeamGiftRecord(record) {
+  const write = teamGiftArchiveQueue.catch(() => {}).then(async () => {
+    await mkdir(dirname(teamGiftArchivePath), { recursive: true });
+    await appendFile(teamGiftArchivePath, `${JSON.stringify(record)}\n`, 'utf8');
+    cacheTeamGiftRecord(record);
+  });
+  teamGiftArchiveQueue = write;
+  return write;
 }
 
 function eventUser(data) {
@@ -1010,6 +1095,8 @@ function handleTikTokEvent(type, raw) {
   const receivedAt = Date.now();
   entry.receivedAt = receivedAt;
   if (type === 'gift') {
+    acceptedTeamGifts.set(entry.eventId, entry);
+    if (acceptedTeamGifts.size > 5000) acceptedTeamGifts.delete(acceptedTeamGifts.keys().next().value);
     void rememberLatestHonorGift(entry).catch(error => recordTechnicalLog('error', `No se pudo guardar el último regalo del cuadro de honor: ${error.message}`));
   }
   broadcastSse(clients, 'update', { entry });
@@ -1424,16 +1511,26 @@ async function loadHonorBoard(){
    fetch('/api/honor/last-gift',{cache:'no-store'}),
    fetch('/api/state/cluss.honorLastGiftTeams',{cache:'no-store'})
   ]);
+  const historyResponse=await fetch('/api/honor/team-gifts',{cache:'no-store'});
+  const giftHistory=await historyResponse.json();
+  if(!historyResponse.ok)throw Error(giftHistory.message||historyResponse.status);
   const donorData=donorsResponse.status===404?{}:await donorsResponse.json();
   if(donorsResponse.status!==404&&!donorsResponse.ok)throw Error(donorData.message||donorsResponse.status);
-  const savedTeams=donorData.teams&&typeof donorData.teams==='object'?donorData.teams:{};
+  const savedTeams=donorData.teams&&typeof donorData.teams==='object'?donorData.teams:donorData.byTeam&&typeof donorData.byTeam==='object'?donorData.byTeam:{};
   const donors={
    leftTeamId:donorData.leftTeamId||'',
    rightTeamId:donorData.rightTeamId||'',
    left:savedTeams[donorData.leftTeamId]||null,
    right:savedTeams[donorData.rightTeamId]||null,
-   byTeam:savedTeams
+   byTeam:savedTeams,
+   giftCountsByTeam:giftHistory.countsByTeam||{},
+   giftsByTeam:giftHistory.giftsByTeam||{}
   };
+  const donorPanel=$('#teamDonors').closest('.connection-card');
+  if(donorPanel){
+   donorPanel.querySelector('h2').textContent='Regalos persistidos por equipo';
+   donorPanel.querySelector('.subtle').textContent='Historial completo en servidor; los últimos 50 de cada equipo aparecen primero.';
+  }
   $('#teamDonors').textContent=JSON.stringify(donors,null,2);
   window.honorTeamDonors=donors;
   const giftResult=await giftResponse.json();if(!giftResponse.ok)throw Error(giftResult.message||giftResponse.status);
@@ -1589,6 +1686,7 @@ let received=0;const source=new EventSource('/api/events');
 source.addEventListener('status',e=>{const s=JSON.parse(e.data),online=!!s.connected;$('#status').textContent=online?'ONLINE':String(s.status||'DESCONECTADO').toUpperCase();$('#status').classList.toggle('online',online);$('#currentUsername').textContent=s.username?'@'+s.username:'Sin usuario';$('#statusDetail').textContent=online?'Conectado a @'+(s.username||'TikTok'):'Estado del conector: '+(s.status||'sin conexión')+(s.username?' · @'+s.username:'')});
 source.addEventListener('update',e=>{const payload=JSON.parse(e.data),entry=payload.entry||{};received++;$('#eventCount').textContent=String(received);$('#eventUnitCount').textContent=String(received);renderLiveEvent(entry)});
 setInterval(()=>{if(!$('#logsPanel').hidden)loadTechnicalLogs()},5000);
+setInterval(()=>{const panel=document.querySelector('[data-units="honor"]');if(panel&&!panel.hidden)loadHonorBoard()},5000);
 const motorSource=new EventSource('/api/admin/motor/events');
 motorSource.addEventListener('motor-state',event=>renderMotor(JSON.parse(event.data)));
 setInterval(()=>{if(lastMotorUpdate&&Date.now()-lastMotorUpdate>2500){$('#motorStatus').textContent='TELEMETRÍA ATRASADA';$('#motorStatus').classList.remove('online')}},1000);
@@ -1762,6 +1860,55 @@ async function handle(req, res) {
   }
   if (path === '/api/honor/last-gift' && req.method === 'GET') {
     safeJson(res, 200, { gift: latestHonorGift });
+    return;
+  }
+  if (path === '/api/honor/team-gifts' && req.method === 'GET') {
+    safeJson(res, 200, {
+      giftsByTeam: Object.fromEntries([...teamGiftHistory].map(([teamId, history]) => [teamId, history.records])),
+      countsByTeam: Object.fromEntries([...teamGiftHistory].map(([teamId, history]) => [teamId, history.total]))
+    });
+    return;
+  }
+  if (path === '/api/honor/team-gifts' && req.method === 'POST') {
+    if (req.headers['x-overlay-control'] !== 'gift-attribution' || !isSameOriginRequest(req)) {
+      safeJson(res, 403, { message: 'La atribución del regalo solo está disponible desde el overlay.' });
+      return;
+    }
+    const body = await readBody(req);
+    const eventId = typeof body.eventId === 'string' ? body.eventId.slice(0, 300) : '';
+    const teamId = typeof body.teamId === 'string' ? body.teamId : '';
+    const entry = acceptedTeamGifts.get(eventId);
+    if (!entry || !TEAM_NAMES[teamId] || !entry.username) {
+      safeJson(res, 400, { message: 'El regalo o el equipo no son válidos.' });
+      return;
+    }
+    if (entry.attributedTeamId) {
+      if (entry.attributedTeamId !== teamId) {
+        safeJson(res, 409, { message: 'Este regalo ya fue atribuido a otro equipo.' });
+        return;
+      }
+      safeJson(res, 200, { ok: true, duplicate: true });
+      return;
+    }
+    const record = normalizeTeamGiftRecord({
+      eventId,
+      teamId,
+      teamName: TEAM_NAMES[teamId],
+      username: entry.username,
+      displayName: entry.displayName,
+      avatarUrl: entry.profilePictureUrl,
+      giftName: entry.giftName,
+      giftDiamonds: entry.giftDiamonds,
+      activityCount: entry.activityCount,
+      receivedAt: entry.receivedAt
+    });
+    if (!record) {
+      safeJson(res, 400, { message: 'No se pudo normalizar el regalo.' });
+      return;
+    }
+    await persistTeamGiftRecord(record);
+    entry.attributedTeamId = teamId;
+    safeJson(res, 200, { ok: true, record });
     return;
   }
   if (path === '/api/reconnect' && req.method === 'POST') {
@@ -2188,6 +2335,7 @@ async function main() {
     adminToken = randomBytes(24).toString('base64url');
     console.log(`Token BACKEND_ADMIN_TOKEN generado para esta sesión: ${adminToken}`);
   }
+  await loadTeamGiftArchive();
   await pruneLogs();
   setInterval(refreshOverlayPresence, 15000).unref();
   setInterval(() => {

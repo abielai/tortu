@@ -292,3 +292,8 @@ INICIO RAPIDO DEL REPOSITORIO
   Sin clave explícita, el backend local usa 123; en producción configura BACKEND_ADMIN_TOKEN.
   Si no hay usuario guardado, el backend usa TIKTOK_USERNAME o tortulive.
   `npm test` ejecuta las pruebas del backend.
+
+HISTORIAL DE REGALOS POR EQUIPO
+  POST /api/honor/team-gifts recibe eventId y teamId desde el overlay; solo acepta regalos reales que el servidor haya emitido por SSE.
+  GET /api/honor/team-gifts devuelve el historial por equipo, los ultimos 50 primero y el total persistido. El archivo completo se conserva
+  sin caducidad en DATA_DIR/team-gifts.jsonl.
