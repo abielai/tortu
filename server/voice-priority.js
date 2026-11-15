@@ -20,6 +20,14 @@ export default {
     },
     { id: 'chat', priority: 2, ttlMs: 20000, max: 3, maxChars: 140, interrupt: true, say: '{user} dice: {text}' },
     { id: 'welcome', priority: 3, ttlMs: 25000, max: 6, say: 'Bienvenido {user}' },
+    { id: 'turbo', priority: 3, ttlMs: 12000, max: 1, say: '¡Turbo para el equipo {team}!' },
+    {
+      id: 'featured',
+      priority: 3,
+      ttlMs: 30000,
+      max: 1,
+      say: 'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'
+    },
     {
       id: 'action',
       priority: 3,
@@ -40,11 +48,12 @@ export default {
       everyMs: 14000,
       quietMs: 3500,
       say: {
-        start: 'Arranca la carrera. La meta está a {track} metros.',
+        start: 'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',
         normal: '{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',
         final: '¡{lead} está a {left} metros de la meta!',
         win: '¡Gana {lead}! Llegó a los {track} metros.'
       }
-    }
+    },
+    { id: 'support', priority: 5, ttlMs: 30000, max: 1, say: 'Envía tap tap para apoyar a tu equipo.' }
   ]
 };

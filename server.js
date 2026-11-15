@@ -42,7 +42,7 @@ const COUNTRIES = [
   ['NL', 'Países Bajos', ['paises bajos', 'países bajos', 'holanda', '🇳🇱', 'nl']],
   ['JP', 'Japón', ['japon', 'japón', '🇯🇵', 'jp']]
 ].map(([code, name, aliases]) => ({ code, name, aliases }));
-const DEFAULT_VS_CONFIG_VERSION = 5;
+const DEFAULT_VS_CONFIG_VERSION = 6;
 const DEFAULT_GIFT_CONFIG_VERSION = 2;
 const DEFAULT_GIFT_TURBO_MS = 15000;
 const DEFAULT_GIFT_CATALOG = [
@@ -81,10 +81,13 @@ const DEFAULT_GIFT_CATALOG = [
 }));
 const DEFAULT_VS = [
   { k: 'cp|ol', label: 'OLIMPIA vs CERRO', on: true, popular: true },
-  { k: 'ucl-bc|ucl-rm', label: 'BARCELONA vs REAL MADRID', on: true, popular: true }
+  { k: 'ucl-bc|ucl-rm', label: 'BARCELONA vs REAL MADRID', on: true, popular: true },
+  { k: 'ca-ar|ca-py', label: 'PARAGUAY vs ARGENTINA', on: true, popular: true },
+  { k: 'ca-br|ca-py', label: 'PARAGUAY vs BRASIL', on: true, popular: true }
 ];
 const TEAM_NAMES = {
   ol: 'Olimpia', cp: 'Cerro Porteño', 'ucl-bc': 'Barcelona', 'ucl-rm': 'Real Madrid',
+  'ca-ar': 'Argentina', 'ca-br': 'Brasil', 'ca-py': 'Paraguay',
   'lib-boc': 'Boca Juniors', 'lib-riv': 'River Plate', 'cl-cel': 'Celtic', 'cl-ran': 'Rangers',
   'cl-int': 'Inter de Milán', 'ucl-milan': 'Milan', 'cl-mu': 'Manchester United', 'ucl-lv': 'Liverpool',
   'cl-nau': 'Nacional (Uruguay)', 'lib-pen': 'Peñarol', 'cl-fen': 'Fenerbahçe', 'cl-gal': 'Galatasaray',
@@ -102,12 +105,13 @@ const TEAM_FLAGS = {
   'cl-ahl': '🔴', 'cl-zam': '⚪', 'cl-ame': '🟡🔵', 'cl-chi': '🔴⚪',
   'cl-flu': '🟢🔴', 'lib-fla': '🔴⚫', 'cl-gre': '🔵⚫', 'cl-sci': '🔴',
   'cl-aja': '⚪🔴', 'cl-fey': '🔴⚪', 'cl-crv': '🔴⚪', 'cl-par': '⚫⚪',
+  'ca-ar': '🇦🇷', 'ca-br': '🇧🇷', 'ca-py': '🇵🇾',
   'ct-ar': '🇦🇷', 'ct-br': '🇧🇷', 'ct-uy': '🇺🇾', 'ct-en': '🏴',
   'ct-sc': '🏴', 'ct-de': '🇩🇪', 'ct-nl': '🇳🇱', 'ct-it': '🇮🇹'
 };
 const DEFAULT_TEAM_CATALOG = Object.keys(TEAM_NAMES)
   .map(id => ({ id, name: TEAM_NAMES[id], flag: TEAM_FLAGS[id] || '🏳️' }));
-const ALLOWED_STATE_KEY = /^cluss\.(?:v1|torneoLock|lang|crest\.[\w-]+|vs|gifts|honorLastGift|voice|stats|libreVotes|chatArchive|log\.[\w.-]+)$/;
+const ALLOWED_STATE_KEY = /^cluss\.(?:v1|torneoLock|lang|crest\.[\w-]+|vs|gifts|honorLastGift|honorLastGiftTeams|voice|stats|libreVotes|chatArchive|log\.[\w.-]+)$/;
 
 const clients = new Set();
 const toolClients = new Set();
@@ -199,7 +203,7 @@ function rememberUsername(value) {
 
 function vsConfigView(value) {
   const current = value?.v === DEFAULT_VS_CONFIG_VERSION && Array.isArray(value.list);
-  const legacy = [3, 4].includes(value?.v) && Array.isArray(value.list);
+  const legacy = [3, 4, 5].includes(value?.v) && Array.isArray(value.list);
   const compatible = current || legacy;
   const storedList = compatible ? value.list.filter(item => item && typeof item.k === 'string') : [];
   const enabled = new Map(storedList.map(item => [item.k, item.on !== false]));
@@ -614,8 +618,21 @@ async function loadJson(path, fallback) {
 async function writeJsonAtomic(path, value) {
   await mkdir(dirname(path), { recursive: true });
   const temp = `${path}.${randomUUID()}.tmp`;
-  await writeFile(temp, JSON.stringify(value), 'utf8');
-  await rename(temp, path);
+  try {
+    await writeFile(temp, JSON.stringify(value), 'utf8');
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await rename(temp, path);
+        return;
+      } catch (error) {
+        if (!['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 4) throw error;
+        await new Promise(resolveDelay => setTimeout(resolveDelay, 25 * (attempt + 1)));
+      }
+    }
+  } catch (error) {
+    await rm(temp, { force: true }).catch(() => {});
+    throw error;
+  }
 }
 
 function statePath(key) {
@@ -1214,7 +1231,7 @@ input,select{border:1px solid #31435a;background:#0a1220;color:var(--text);paddi
 <button type="button" class="active" data-unit="usuarios">Usuarios</button><button type="button" data-unit="voz">Voz en off</button><button type="button" data-unit="honor">Honor</button><button type="button" data-unit="eventos">Eventos</button><button type="button" data-unit="regalos">Regalos</button><button type="button" data-unit="torneos">Torneos</button><button type="button" data-unit="estadisticas">Estadísticas</button><button type="button" data-unit="motor">Motor tiempo real</button><button type="button" data-unit="turbo-regalos">Turbo regalos</button><button type="button" data-unit="acciones">CTAs / Acciones</button><button type="button" data-unit="logs">Logs</button>
 </nav>
 <section class="panel business-panel" data-units="usuarios"><header><h2><span class="icon">👤</span> Usuarios</h2><span class="pill">LIVE</span></header><div class="form-row"><button type="button" id="donTortuToggle" class="don-tortu-toggle off" aria-pressed="false" aria-label="Don Tortu desactivado" disabled>Don Tortu: DESACTIVADO</button><span class="subtle">Verde: avatar y voz activos · Rojo: desactivados y ocultos del overlay.</span></div><p class="message" id="donTortuMessage" role="status"></p><pre class="pre" id="recentUsers">Cargando usuarios…</pre><article class="connection-card user-connection"><header><h2>Conexión TikTok</h2><span class="status-pill" id="status">CONECTANDO</span></header><p class="subtle">Usuario actual: <b id="currentUsername">Sin usuario</b></p><p class="subtle" id="statusDetail">Esperando estado del servidor…</p><form id="connect" class="form-row"><label class="field">Usuarios guardados<select id="savedUsername"><option value="">Cargando usuarios guardados…</option></select></label><label class="field">Usuario del live<input name="username" placeholder="Ingresa el usuario sin @" required></label><button class="primary">Conectar</button><button type="button" id="reconnect">Reintentar</button></form><p class="message" id="savedUsernameMessage" role="status"></p></article></section>
-<section class="panel business-panel" data-units="honor"><header><h2><span class="icon">🥇</span> Negocio Honor · Cuadro de honor</h2><span class="pill">HONOR</span></header><article class="connection-card"><header><h2>Último usuario que envió un regalo</h2></header><div class="form-row"><img id="honorLastGiftAvatar" alt="" width="56" height="56" hidden><pre class="pre" id="honorLastGift">Cargando último regalo…</pre></div></article><pre class="pre" id="honorBoard">Cargando resultados guardados…</pre></section>
+<section class="panel business-panel" data-units="honor"><header><h2><span class="icon">🥇</span> Negocio Honor · Cuadro de honor</h2><span class="pill">HONOR</span></header><article class="connection-card"><header><h2>Último usuario que envió un regalo</h2></header><div class="form-row"><img id="honorLastGiftAvatar" alt="" width="56" height="56" hidden><pre class="pre" id="honorLastGift">Cargando último regalo…</pre></div></article><article class="connection-card"><header><h2>Últimos donadores por equipo</h2></header><p class="subtle">El último usuario que donó a cada equipo se conserva entre carreras.</p><div class="toolbar"><button type="button" id="copyLeftDonor">Copiar equipo izquierdo</button><button type="button" id="copyRightDonor">Copiar equipo derecho</button><button type="button" id="copyTeamDonors">Copiar ambos equipos</button></div><p class="message" id="donorCopyMessage" role="status"></p><pre class="pre" id="teamDonors">Cargando donadores…</pre></article><pre class="pre" id="honorBoard">Cargando resultados guardados…</pre></section>
 <section class="panel business-panel" data-units="eventos"><header><h2><span class="icon">⚡</span> Eventos LIVE</h2><span class="pill">ÚLTIMOS 50</span></header><p class="subtle">Eventos recibidos en esta sesión: <b id="eventUnitCount">0</b>. Los más recientes aparecen primero.</p><div class="event-layout"><div><div class="event-toolbar"><button type="button" id="copyEvents">Copiar eventos visibles</button><button type="button" id="clearEvents">Limpiar eventos</button></div><p class="message" id="eventMessage" role="status"></p><p class="unit-empty" id="eventEmpty">Esperando eventos de TikTok…</p><ol class="event-list" id="eventList" aria-live="polite"></ol></div><aside class="event-filters" aria-label="Filtrar eventos"><h3>Mostrar eventos</h3><form id="eventFilterForm"><label class="event-filter"><input type="checkbox" data-event-filter="all" checked> Todos</label><label class="event-filter"><input type="checkbox" data-event-filter="member" checked> Se unieron</label><label class="event-filter"><input type="checkbox" data-event-filter="chat" checked> Comentarios</label><label class="event-filter"><input type="checkbox" data-event-filter="like" checked> Me gusta / taps</label><label class="event-filter"><input type="checkbox" data-event-filter="follow" checked> Seguidores</label><label class="event-filter"><input type="checkbox" data-event-filter="share" checked> Compartidos</label><label class="event-filter"><input type="checkbox" data-event-filter="gift" checked> Regalos</label><button type="submit" class="primary" id="applyEventFilters" style="width:100%;margin-top:8px">Aplicar filtros</button></form></aside></div><pre class="pre" id="tools" hidden></pre></section>
 <section class="panel business-panel" data-units="logs" id="logsPanel"><header><h2><span class="icon">📜</span> Logs técnicos</h2><span class="pill" id="logsCount">SESIÓN ACTUAL</span></header><p class="subtle">Avisos y errores recientes del servidor. El diagnóstico detallado se activa durante 10 minutos en los overlays conectados.</p><div class="toolbar"><button id="toggleAllLogs" type="button" aria-pressed="false">Activar logs en todos los negocios (10 min)</button><button id="copyTechnicalLogs" type="button">Copiar logs</button><button id="refreshLogs" type="button">Actualizar</button></div><p class="message" id="logsMessage" role="status"></p><p class="unit-empty" id="logsEmpty">Sin registros técnicos todavía.</p><ol class="event-list" id="serverLogs" aria-live="polite"></ol><p class="message" id="logsError" role="status"></p></section>
 <section class="panel business-panel" data-units="regalos turbo-regalos"><header><h2><span class="icon">🎁</span> Negocio de regalos</h2><span class="pill">CATÁLOGO Y ROTACIÓN</span></header><p class="subtle">Total recibidos: <b id="giftUnitCount">0</b></p><p class="subtle">Turbo por unidad: 10 m de base + 5 m por cada diamante. Se recorre durante 15 segundos; un regalo de 1 diamante avanza 15 m.</p><input id="gift" type="hidden" value="6"><h3>Catálogo de regalos · monedas</h3><p class="subtle">Rosita empieza habilitada. El catálogo incluye los regalos y valores en monedas indicados; los regalos no catalogados aparecen con valor sin informar y deshabilitados.</p><div class="form-row"><label class="field">Rotar en el cuadro de honor cada (segundos)<input id="giftRotation" type="number" min="1" max="3600" value="10"></label></div><div id="giftCatalogList" class="gift-catalog-list"><div class="unit-empty">Cargando catálogo…</div></div><div class="toolbar"><button class="primary" id="saveGiftCatalog">Guardar catálogo y rotación</button></div><p class="message" id="giftConfigMessage" role="status"></p></section>
@@ -1222,7 +1239,7 @@ input,select{border:1px solid #31435a;background:#0a1220;color:var(--text);paddi
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🐢</span> Torneos · contador de equipos</h2><span class="pill">TORNEOS</span></header><div class="form-row"><label class="field">Avance del turbo por taps (%)<input id="tap" type="number" min="0" max="100" value="20"></label><button class="primary" id="saveTapTurbo">Guardar ajustes de equipos</button><button data-command="turbo-down">Turbo −</button><button data-command="turbo-up">Turbo +</button></div><div class="motor-grid" id="teamTelemetry"><div class="unit-empty">Esperando valores del motor…</div></div></section>
 <section class="panel business-panel" data-units="motor"><header><h2><span class="icon">⚙</span> Motor en tiempo real</h2><span class="pill" id="motorStatus">SIN TELEMETRÍA</span></header><p class="subtle">Valores actuales reportados por el overlay y retransmitidos por el servidor.</p><div class="stats"><article class="stat"><span class="stat-label">Fase</span><strong id="motorPhase">—</strong><small id="motorUpdated">Esperando al overlay</small></article><article class="stat"><span class="stat-label">Duración</span><strong id="motorElapsed">—</strong><small>Tiempo de carrera</small></article><article class="stat"><span class="stat-label">Inactividad</span><strong id="motorIdle">—</strong><small>Cuenta regresiva</small></article></div><p class="subtle">Ganador: <b id="motorWinner">—</b> · Eventos procesados: <b id="motorEvents">0</b></p><div class="motor-grid" id="motorTeams"><div class="unit-empty">El overlay debe estar abierto para publicar telemetría.</div></div><pre class="pre" id="motorStats">Estadísticas del motor: esperando datos…</pre></section>
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos</h2><span class="pill">VOTACIÓN</span></header><label class="checkrow"><input id="tournamentEnabled" type="checkbox"> Registrar votos de comentarios reales</label><div class="toolbar"><button class="primary" id="saveTournament">Guardar configuración</button></div></section>
-<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos · crear lista de carreras</h2><span class="pill">DOS CLÁSICOS EN ROTACIÓN</span></header><p class="subtle">Solo se habilitan Olimpia–Cerro y Barcelona–Real Madrid. Ambos son populares y se alternan al terminar cada carrera por inactividad; las demás banderas siguen disponibles en sus torneos.</p><div id="vsConfigList" class="vs-config-list"><div class="unit-empty">Cargando VS…</div></div><div class="toolbar"><button class="primary" id="saveVsConfig">Guardar VS y popularidad</button></div><h3>Lista de carreras</h3><div id="raceList" class="race-list"><div class="unit-empty">Cargando lista…</div></div><p class="message" id="vsConfigMessage" role="status"></p></section>
+<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos · crear lista de carreras</h2><span class="pill">CUATRO DUELOS EN ROTACIÓN</span></header><p class="subtle">Olimpia–Cerro, Barcelona–Real Madrid, Paraguay–Argentina y Paraguay–Brasil se habilitan en la rotación; se alternan al terminar cada carrera por inactividad.</p><div id="vsConfigList" class="vs-config-list"><div class="unit-empty">Cargando VS…</div></div><div class="toolbar"><button class="primary" id="saveVsConfig">Guardar VS y popularidad</button></div><h3>Lista de carreras</h3><div id="raceList" class="race-list"><div class="unit-empty">Cargando lista…</div></div><p class="message" id="vsConfigMessage" role="status"></p></section>
 <section class="panel business-panel" data-units="estadisticas"><header><h2><span class="icon">📊</span> Estadísticas por país y presencia</h2><span class="pill">LIVE DATA</span></header><pre class="pre" id="countries">Esperando datos…</pre><div class="country-box"><span class="subtle">Estado del overlay</span><pre class="pre" id="presence">Verificando clientes…</pre></div></section>
 <section class="panel business-panel" data-units="voz"><header><h2><span class="icon">♫</span> Voz en off · Narrador</h2><span class="pill">PRIORIDADES EN VIVO</span></header><p class="subtle">Voz alegre, con prioridad más baja primero; los regalos interrumpen mensajes de menor prioridad. Activa o desactiva cada tipo de narración.</p><div class="form-row"><label class="field">No repetir una frase durante (minutos)<input id="voiceCooldownMinutes" type="number" min="1" max="1440" step="1" value="1"></label><button class="primary" id="saveVoiceConfig">Guardar ajustes de voz</button></div><p class="voice-hint" id="voicePhraseRule">Las frases pronunciadas se comparan con el diccionario temporal antes de hablar.</p><ol class="voice-order" id="voiceOrder"></ol><p class="voice-hint">🎁 Cada regalo se agradece con una voz alegre. La narración respeta las prioridades activas y se vacía al terminar cada partido.</p><p class="message" id="voiceError" role="status"></p></section>
 <section class="panel business-panel" data-units="acciones"><header><h2><span class="icon">🛠</span> CTAs / Acciones</h2><span class="pill">OPERADOR</span></header><p class="subtle">Herramientas de operación del live y la sesión.</p><div class="toolbar"><button id="reset">Reiniciar cronómetro y regalos</button><button data-command="refresh">Recargar overlay</button><button id="logout">Cerrar sesión protegida</button></div></section>
@@ -1363,7 +1380,7 @@ $('#saveVoiceConfig').onclick=async()=>{
 };
 $('#reset').onclick=async()=>{if(!confirm('¿Reiniciar el cronómetro y el contador de regalos?'))return;try{await admin('/api/admin/game-tools/reset');msg('Cronómetro reiniciado')}catch(e){msg(e.message)}};
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{try{await admin('/api/admin/game-command',{command:b.dataset.command});msg('Comando enviado')}catch(e){msg(e.message)}});
-const voiceInfo={gift:['Regalo','Agradece el regalo y activa la alerta alegre desde 1 diamante.','🎁'],move:['Cambio de equipo','Anuncia cuando alguien se une o cambia de equipo.','🔁'],chat:['Comentario','Lee el comentario real del usuario.','💬'],welcome:['Ingreso al live','Da la bienvenida a quien entra.','👋'],action:['Acciones','Agradece likes, seguidores y compartidos.','⚡'],match:['Relato de carrera','Informa posiciones, metros restantes y llegada a la meta.','🏁']};
+const voiceInfo={gift:['Regalo','Agradece el regalo y activa la alerta alegre desde 1 diamante.','🎁'],move:['Cambio de equipo','Anuncia cuando alguien se une o cambia de equipo.','🔁'],chat:['Comentario','Lee el comentario real del usuario.','💬'],welcome:['Ingreso al live','Da la bienvenida a quien entra.','👋'],action:['Acciones','Agradece likes, seguidores y compartidos.','⚡'],match:['Relato de carrera','Informa posiciones, metros restantes y llegada a la meta.','🏁'],support:['Apoyo','Invita a enviar tap tap para apoyar al equipo con la segunda voz y prioridad baja.','❤️']};
 function renderVoice(data){
  const order=$('#voiceOrder');if(!order)return;order.replaceChildren();
  data.levels.slice().sort((a,b)=>a.priority-b.priority).forEach(level=>{
@@ -1402,10 +1419,23 @@ $('#voiceToggle').onclick=()=>{showUnit('voz');loadVoice()};
 loadVoice();
 async function loadHonorBoard(){
  try{
-  const [resultsResponse,giftResponse]=await Promise.all([
+  const [resultsResponse,giftResponse,donorsResponse]=await Promise.all([
    fetch('/api/state/cluss.v1',{cache:'no-store'}),
-   fetch('/api/honor/last-gift',{cache:'no-store'})
+   fetch('/api/honor/last-gift',{cache:'no-store'}),
+   fetch('/api/state/cluss.honorLastGiftTeams',{cache:'no-store'})
   ]);
+  const donorData=donorsResponse.status===404?{}:await donorsResponse.json();
+  if(donorsResponse.status!==404&&!donorsResponse.ok)throw Error(donorData.message||donorsResponse.status);
+  const savedTeams=donorData.teams&&typeof donorData.teams==='object'?donorData.teams:{};
+  const donors={
+   leftTeamId:donorData.leftTeamId||'',
+   rightTeamId:donorData.rightTeamId||'',
+   left:savedTeams[donorData.leftTeamId]||null,
+   right:savedTeams[donorData.rightTeamId]||null,
+   byTeam:savedTeams
+  };
+  $('#teamDonors').textContent=JSON.stringify(donors,null,2);
+  window.honorTeamDonors=donors;
   const giftResult=await giftResponse.json();if(!giftResponse.ok)throw Error(giftResult.message||giftResponse.status);
   const gift=giftResult.gift,avatar=$('#honorLastGiftAvatar');
   if(gift){
@@ -1469,6 +1499,20 @@ const textarea=document.createElement('textarea');textarea.value=text;textarea.s
 const copied=typeof document.execCommand==='function'&&document.execCommand('copy');textarea.remove();
 if(!copied)throw Error('El navegador no permitió copiar al portapapeles.');
 }
+async function copyHonorDonor(side){
+ try{
+  const data=window.honorTeamDonors||{left:null,right:null,byTeam:{}};
+  const value=side==='both'?data:data[side];
+  const text=JSON.stringify(value,null,2);
+  if(navigator.clipboard&&typeof navigator.clipboard.writeText==='function'){
+   try{await navigator.clipboard.writeText(text)}catch(error){copyText(text)}
+  }else copyText(text);
+  $('#donorCopyMessage').textContent=(side==='left'?'Donador del equipo izquierdo':side==='right'?'Donador del equipo derecho':'Datos de ambos equipos')+' copiados.';
+ }catch(error){$('#donorCopyMessage').textContent='No se pudieron copiar los datos: '+error.message}
+}
+$('#copyLeftDonor').addEventListener('click',()=>copyHonorDonor('left'));
+$('#copyRightDonor').addEventListener('click',()=>copyHonorDonor('right'));
+$('#copyTeamDonors').addEventListener('click',()=>copyHonorDonor('both'));
 async function copyTechnicalLogs(){
 try{
  const text=JSON.stringify({copiedAt:new Date().toISOString(),diagnostic:diagnosticState,logs:currentTechnicalLogs},null,2);

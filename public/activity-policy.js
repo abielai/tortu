@@ -88,7 +88,7 @@
           interactionAt = lastAt;
           return meters.slice();
         },
-        update: function (now, lastInteractionAt, enabled) {
+        update: function (now, lastInteractionAt, enabled, pausedUntil) {
           var current = Number(now);
           if (!Number.isFinite(current)) return meters.slice();
           var interaction = Number(lastInteractionAt);
@@ -101,13 +101,18 @@
             ? current
             : Math.max(lastAt, idleStart);
           var remaining = enabled && lastAt !== null ? Math.max(0, current - start) : 0;
+          var cursor = current - remaining;
           while (remaining > 0) {
             var turnPosition = idleMs % 1000;
             var elapsed = Math.min(remaining, 1000 - turnPosition);
             var movingTeam = Math.floor(idleMs / 1000) % 2;
-            meters[movingTeam] += elapsed * 2 / 1000;
+            var pauseUntil = pausedUntil && Number(pausedUntil[movingTeam]);
+            var activeFrom = Number.isFinite(pauseUntil) ? Math.max(cursor, pauseUntil) : cursor;
+            var activeMs = Math.max(0, cursor + elapsed - activeFrom);
+            meters[movingTeam] += activeMs * 2 / 1000;
             idleMs += elapsed;
             remaining -= elapsed;
+            cursor += elapsed;
           }
           lastAt = current;
           return meters.slice();

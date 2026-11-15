@@ -356,7 +356,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
  14. ESFUERZO DE LA TORTUGA (v15, capa SOLO visual; id tortu-esfuerzo, al final): mientras carga la barra del limite de taps, cada tap/like/seguir/compartir REAL hace que las patas y el caparazon de la tortuga del equipo trabajen mas (4 fases segun el llenado; fase 4 con brillo y fuego, tambien durante el turbo) y suelta polvo; un comentario real da un empujon y un globito. Se apaga 1,8 s despues del ultimo evento. No cambia limites ni puntos; nunca pide acciones (regla 1).
  15. AVISOS DE MAXIMO 3 s (v16, id aviso-cuenta, al final): ninguna ventana emergente (banner, aviso, tarjeta de regalo, logro, hype) dura mas de 3 s y todas muestran un contador regresivo en segundos (3, 2, 1) en su esquina. La tarjeta de regalo dura 2,6 s (+0,4 s de salida). Solo informa; nunca pide acciones (regla 1).
  16. RECTA FINAL SIN VENTANAS (v17, id recta-final-js, al final): desde que la tortuga lider pasa RF=70 % de pista, ninguna ventana emergente (banner, aviso, regalo, logro, hype) se muestra, para ver la pista completa; quedan en espera (maximo 3, las mas recientes) y se muestran una a una DESPUES, al llegar a la meta (fin de ronda). Al empezar una ronda nueva lo pendiente se descarta. Solo informa; nunca pide acciones (regla 1).
- 17. VOZ POR PRIORIDAD Y METROS (v18, id voz-prioridad-js, al final): orden: 1 agradecer cada regalo y alerta alegre desde 1 diamante; 2 anunciar cambios de equipo; 3 leer comentarios; 4 agradecer acciones/saludar; 5 narrar el avance y lo que falta para la meta. Tabla: server/voice-priority.js -> GET /api/voice-priority. La pista se mide en METROS: la meta esta a 100 m (1 punto de pista = 1 m). Nunca pide acciones (regla 1).
+ 17. VOZ POR PRIORIDAD Y METROS (v18, id voz-prioridad-js, al final): orden: 1 agradecer cada regalo y alerta alegre desde 1 diamante; 2 anunciar cambios de equipo; 3 leer comentarios; 4 agradecer acciones, saludar, dar la bienvenida al hincha destacado con su usuario y el líder de pista, y anunciar turbos por equipo; 5 narrar el avance y lo que falta para la meta; 6 invitar en la segunda voz a enviar tap tap para apoyar a su equipo. Al empezar, anuncia el duelo y la invitacion. Tabla: server/voice-priority.js -> GET /api/voice-priority. La pista se mide en METROS: la meta esta a 100 m (1 punto de pista = 1 m). Nunca pide acciones (regla 1).
  18. VS EN BUCLE + LISTA EN EL BACK + ESTADISTICAS POR VS (v19, ids vs-motor / vs-motor-js, al final): cada VS se repite (serie tras serie) mientras haya interaccion; cuando la cuenta regresiva llega a 0 avanza en tandas: todos los VS habilitados marcados populares y, al final, un solo VS habilitado no popular. Al completar la tanda recarga los populares con el siguiente no popular habilitado. Popularidad y estadisticas viven en cluss.vs. Valor por evento real: miembro 1, comentario 5, like 1 c/u, seguir 3, compartir 3, regalo 10; ranking = valor por ronda. Los bots no cuentan. Nunca pide acciones (regla 1).
  19. AUDIENCIA EN COPAS: eliminada del cuadro de copas. Solo se muestra el contador de copas, sin icono ni número de audiencia.
  20. VOZ: CAMBIO DE EQUIPO Y SALUDO AL INGRESAR (v21, dentro de voz-prioridad-js): nivel 'move' = prioridad 1: un hincha que nombra un club ('se une a X') o cambia de uno ('cambio de X a Y') se anuncia en cola (FIFO, maximo 8). Nivel 'welcome' = prioridad 3, saludo 'Bienvenido <usuario>' a cada evento 'member' (una vez; de nuevo si reingresa tras 10 min; maximo 6 en cola). Si el backend (GET /api/voice-priority) no trae esos niveles, el frontend agrega los suyos por defecto. Nunca pide acciones (regla 1).
@@ -937,7 +937,8 @@ const TOURNAMENT_OPTIONS=TOURNAMENT_MODES.slice();
 const TOURNAMENT_LABELS={libre:'TORNEO LIBRE',get clasico(){const f=CLASSIC_FIXTURES[classicFixtureIndex]||CLASSIC_FIXTURES[0],a=tournamentItem(f[0]),b=tournamentItem(f[1]);return (CLASSIC_NAMES[classicFixtureIndex]||'CLÁSICO')+' · '+(a?a.n:'')+' VS '+(b?b.n:'')},libertadores:'LIBERTADORES',champions:'CHAMPIONS',countries:'COPA DEL MUNDO',america:'COPA AMÉRICA',elite:'ELITE NATIONS CUP'};
 /* CLASICOS en rotacion. Serie al MEJOR DE 3 (gana quien llegue a 2; maximo 3 partidos). [id1,id2,nombre del clasico] */
 const CLASSIC_DEFS=[
- ['ol','cp','SUPERCLÁSICO PARAGUAYO'],['ucl-bc','ucl-rm','EL CLÁSICO']
+ ['ol','cp','SUPERCLÁSICO PARAGUAYO'],['ucl-bc','ucl-rm','EL CLÁSICO'],
+ ['ca-py','ca-ar','PARAGUAY VS ARGENTINA'],['ca-py','ca-br','PARAGUAY VS BRASIL']
 ];
 const CLASSIC_FIXTURES=CLASSIC_DEFS.map(d=>[d[0],d[1]]);
 const CLASSIC_NAMES=CLASSIC_DEFS.map(d=>d[2]);
@@ -1256,6 +1257,14 @@ addEventListener('keydown',e=>{if(e.key==='Escape')stClose()});
 const PTS={share:5*HARD, /* compartir = 5 rayos */chat:10*HARD, /* comentar = 10 rayos */like:1*HARD,follow:3*HARD,gift:GIFT_PROGRESS};
 const TAP_POLICY=window.TORTUWORLD_ACTIVITY_POLICY;
 let sp=[1,1,1],lastTick=performance.now(),raceStartedAt=lastTick,raceEndedAt=null,raceReady=false,raceStartRequest=0;
+let lastTeamProgressAt=[Date.now(),Date.now()],teamPauseUntil=[0,0];
+function noteTeamAdvance(team){
+ if(team<0||team>1)return;
+ const now=Date.now(),other=1-team;teamPauseUntil[team]=0;
+ if(now-lastTeamProgressAt[other]>=3000)teamPauseUntil[other]=Math.max(teamPauseUntil[other],now+3000);
+ lastTeamProgressAt[team]=now;
+}
+function teamPaused(team){return team<0||team>1||Date.now()<teamPauseUntil[team]}
 window.getRaceElapsedMs=()=>raceReady?Math.max(0,(raceEndedAt===null?performance.now():raceEndedAt)-raceStartedAt):0;
 const initialStartRequest=raceStartRequest;
 function releaseInitialRace(){raceStartedAt=performance.now();lastTick=raceStartedAt;raceEndedAt=null;raceReady=true}
@@ -1299,7 +1308,7 @@ function laneSVG(i,t){
 <rect x="7.5" y="5" width="105" height="130" rx="13" fill="url(#gt${i})"/>
 <g stroke="#1a0e05" stroke-width="1.6" opacity=".7"><path d="M36 186H110 M36 304H110 M36 421H110"/></g><g stroke="#e3b87d" stroke-width=".8" opacity=".35"><path d="M36 187.5H110 M36 305.5H110 M36 422.5H110"/></g>
 <line x1="10" y1="16" x2="110" y2="16" stroke="#f1e8d6" stroke-width="7" stroke-dasharray="7 7"/>
-<text x="60" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif">META</text>
+<text class="meta-label" x="105" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="end" font-family="Inter,sans-serif">META</text>
 <rect x="9" y="66" width="7" height="470" rx="3.5" fill="#150a03" stroke="#e3b87d" stroke-opacity=".4" stroke-width=".6"/><rect x="9" y="66" width="7" height="470" rx="3.5" fill="url(#ga${i})" opacity=".3"/><rect id="gf${i}" x="10" y="536" width="5" height="0" rx="2.5" fill="url(#ga${i})"/><circle id="gk${i}" cx="12.5" cy="536" r="5" fill="#ffd566" stroke="#fff" stroke-width="1.5"/>
 <g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}${routeGuides}
 <g transform="translate(13 0)"><g class="tt" id="tt${i}"><g class="in" id="in${i}">
@@ -1364,7 +1373,7 @@ function hop(i){const g=$('#in'+i);g.classList.remove('hop');void g.getBBox();g.
 function push(i,type,n=1){
  if(over||!raceReady||i<0||!S[i])return;
  const pts=type==='gift'?GIFT_PROGRESS*n:PTS[type]*n,s=S[i];
- s.p+=pts;if(type==='like')s.l+=n;if(type==='gift')s.g+=n;
+ if(pts>0)noteTeamAdvance(i);s.p+=pts;if(type==='like')s.l+=n;if(type==='gift')s.g+=n;
  const prev=lead;lead=update();if(pts>0)float(i,'+'+(+pts.toFixed(1)));hop(i);walk(i);
  if(s.p>=100){return win(i)}
  if(type!=='gift'&&lead!==prev&&lead>=0)say(`¡${T[lead].n} toma la delantera!`);
@@ -1387,7 +1396,7 @@ function win(i){
 function reset(){
  const lanes=document.getElementById('lanes');if(lanes)lanes.classList.toggle('swapped');
  clearTimeout(rs);sel=0;over=false;lead=-1;S.forEach(s=>{s.p=0;s.g=0;s.l=0});
- picks.clear();lastChat.clear();recentChatPicks.clear();clearRoundCaches();newSpeeds();lastTick=performance.now();raceStartedAt=lastTick;raceEndedAt=null;
+ picks.clear();lastChat.clear();recentChatPicks.clear();clearRoundCaches();newSpeeds();lastTick=performance.now();raceStartedAt=lastTick;raceEndedAt=null;lastTeamProgressAt=[Date.now(),Date.now()];teamPauseUntil=[0,0];
  T.forEach((t,i)=>$('#cw'+i).setAttribute('display','none'));
  $('#win').classList.remove('show'); update();say('¡Y ARRANCAN LAS TORTUGAS!');
 }
@@ -1682,7 +1691,7 @@ fetch('/api/reconnect',{method:'POST'}).then(async response=>{
 setInterval(()=>{
  const now=performance.now(),dt=Math.min(2,(now-lastTick)/1000);lastTick=now;
  if(over||!raceReady)return;
- S.forEach((s,i)=>{if(s.p<PASSIVE_CAP){s.p=Math.min(PASSIVE_CAP,s.p+100/RACE_SECONDS*sp[i]*dt);walk(i)}}); /* avance pasivo con tope */
+ S.forEach((s,i)=>{if(!teamPaused(i)&&s.p<PASSIVE_CAP){s.p=Math.min(PASSIVE_CAP,s.p+100/RACE_SECONDS*sp[i]*dt);walk(i)}}); /* avance pasivo con tope */
  lead=update();
  let w=-1;S.forEach((s,i)=>{if(w<0&&s.p>=100)w=i}); /* gana en cuanto la cabeza toca la meta, sin esperar a que termine el turbo */
  if(w>=0)win(w);
@@ -1907,8 +1916,11 @@ function heartAdd(t,n){
  if(full)HEART_N=nextLimit;
  renderHeart(t);
  if(full){
+ noteTeamAdvance(t);
   if(HEART_N<previousLimit)setTimeout(()=>T.forEach((_,i)=>{if(i!==t&&heart[i]>=HEART_N&&!over)heartAdd(i,0)}),0);
   lead=update();turboOn(t,HEART_TURBO_MS*full,HEART_TURBO_PPS); /* sin salto inmediato: avanza lento durante el turbo */
+  const priorityVoice=window.vozPrioridad;
+  if(priorityVoice&&typeof priorityVoice.announceTurbo==='function')priorityVoice.announceTurbo(T[t].n);
  }
  const h=$('#hb'+t);
  h.classList.remove('bump');void h.offsetWidth;h.classList.add('bump'); /* cada me gusta / tap hace latir el contador */
@@ -2341,7 +2353,7 @@ handleLiveEntry=function(e){
 let lastInteractionAt=Date.now(),lowActivityFinished=false,matchInteractionCount=0;
 const idleVisualAdvance=TAP_POLICY.createIdleVisualAdvance();
 idleVisualAdvance.reset(lastInteractionAt);
-window.getIdleVisualAdvanceMeters=()=>idleVisualAdvance.update(Date.now(),lastInteractionAt,!over&&raceReady);
+window.getIdleVisualAdvanceMeters=()=>idleVisualAdvance.update(Date.now(),lastInteractionAt,!over&&raceReady,teamPauseUntil);
 /* CUENTA REGRESIVA FIJA. 60 s que retroceden; cada interaccion real (comentario, like, regalo, seguir, compartir) la devuelve a 60; al llegar a 0 la carrera termina (finishForLowActivity). */
 const IDLE_BASE_MS=60000,IDLE_ADV_MS=120000,IDLE_ADV_MIN=1000; /* plazo normal 60 s; con mas de 1000 interacciones reales en el partido, hasta 120 s */
 function idleLimitMs(){return matchInteractionCount>IDLE_ADV_MIN?IDLE_ADV_MS:IDLE_BASE_MS}
@@ -2393,7 +2405,7 @@ setInterval(()=>{
   const giftPts=giftOn?giftTurboRate[i]*250/1000*100/trackMeters:0;
   const pts=(on?turboGain(turboPower[i],250,1):0)+giftPts;
   $('#ln'+i).classList.toggle('turbo',on||giftOn);
-  if(pts){S[i].p=Math.min(100,S[i].p+pts);walk(i)}
+  if(pts&&!teamPaused(i)){S[i].p=Math.min(100,S[i].p+pts);walk(i)}
   if(!on)turboPower[i]=0;
   if(!giftOn)giftTurboRate[i]=0;
  });
@@ -2452,8 +2464,15 @@ function perks(e){
   const name=String(fan&&fan.name||mv[0]).replace(/[_.]+/g,' ');
   const club=team?cap(team.n):'';
   const greeting=club?'Saludamos al hincha destacado de '+club+', '+name:'Saludamos al hincha destacado, '+name;
+  const maxProgress=Math.max(...S.map(state=>Number(state.p)||0));
+  const leaders=S.map((state,index)=>({state,index})).filter(({state})=>(Number(state.p)||0)===maxProgress);
+  const leader=leaders.length===1?cap(T[leaders[0].index].n):'';
   lastMvp=mv[0];
   tz(greeting+(first?' · lidera la sala':' · es el nuevo MVP'),'👑');
+  const priorityVoice=window.vozPrioridad;
+  if(priorityVoice&&typeof priorityVoice.announceFeaturedFan==='function'){
+   priorityVoice.announceFeaturedFan(fan&&fan.name||mv[0],club,leader);
+  }
  }
 }
 /* ===== VOZ EN OFF: aviso inicial y narracion de carrera ===== */
@@ -5376,19 +5395,22 @@ SS.speak=function(u){
 /* 2) Tabla de prioridad (valor por defecto = la del backend) */
 const DEF_LEVELS=[
  {id:'move',priority:1,ttlMs:20000,max:8,interrupt:true,say:{to:'{user} se une a {team}',from:'{user} cambió de {from} a {team}'}},
- {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'}
+ {id:'turbo',priority:3,ttlMs:12000,max:1,say:'¡Turbo para el equipo {team}!'},
+ {id:'featured',priority:3,ttlMs:30000,max:1,say:'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'},
+ {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'},
+ {id:'support',priority:5,ttlMs:30000,max:1,say:'Envía tap tap para apoyar a tu equipo.'}
 ];
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  DEF_LEVELS[0],DEF_LEVELS[1],
  {id:'gift',priority:0,ttlMs:0,max:0,interrupt:true,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
  {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,interrupt:true,say:'{user} dice: {text}'},
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
- {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
+ {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
 function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)})}
 ensureLevels();
 function normalizeEnabledLevels(source){
- const enabledByDefault=new Set(['gift','move','chat','match']);
+ const enabledByDefault=new Set(['gift','move','chat','turbo','featured','match','support']);
  return Object.fromEntries(TB.levels.map(level=>[
   level.id,
   typeof(source&&source[level.id])==='boolean'?source[level.id]:enabledByDefault.has(level.id)
@@ -5425,7 +5447,7 @@ window.addEventListener('voice-config-update',event=>{
  }
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
-const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
+const voiceRole=id=>['gift','move','chat','support'].includes(id)?'notifications':'commentator';
 window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
@@ -5466,9 +5488,9 @@ function clearDisabledLevels(){
  if(cur&&!levelEnabled(cur.id)){queueGeneration++;cur=null;finishActiveSpeech=null;try{SS.cancel()}catch(e){}}
  pump();
 }
-function say(id,text,force){
+function say(id,text,force,skipRepeat){
  const L=LV(id);if(!text||mute()||!levelEnabled(id))return;
- const key=reservePhrase(text);if(key===null)return;
+ const key=skipRepeat?'':reservePhrase(text);if(key===null)return;
  const it={id,p:L.priority==null?9:+L.priority,text,phraseKey:key,at:Date.now(),ttl:L.ttlMs==null?10000:+L.ttlMs};
  const same=Q.filter(x=>x.id===id),max=Number(L.max);if(max>0)while(same.length>=max){const removed=same.shift();releasePending(removed);Q.splice(Q.indexOf(removed),1)}
  if(force){const keep=Q.filter(x=>x.p<it.p);Q.forEach(item=>{if(!keep.includes(item))releasePending(item)});Q.splice(0,Q.length,...keep)}
@@ -5579,9 +5601,29 @@ setInterval(()=>{
 },1000);
 const _cr=M.completeRound;
 if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arguments);clearQueue();return r};
+function announceRace(){
+ const start=LV('match').say&&LV('match').say.start||'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.';
+ say('match',fill(start,{teamA:nm(0),teamB:nm(1),track:TRACK()}),false,true);
+ const support=LV('support').say||'Envía tap tap para apoyar a tu equipo.';
+ say('support',EN()?'Send tap-tap to support your team.':support,false,true);
+}
 if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(this,arguments);
- clearQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();return r}}
-window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues};
+ clearQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();announceRace();return r}}
+function announceFeaturedFan(username,team,leader){
+ const user=String(username||'').trim().replace(/^@+/,'').slice(0,40);if(!user)return;
+ const raceStatus=leader?leader+' va primero en la pista.':'La carrera está empatada.';
+ const text=EN()
+  ?'Welcome the featured fan of club '+(team||'the community')+', user '+user+'. '+(leader?leader+' is leading the track.':'The race is tied.')
+  :fill(LV('featured').say||'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}',{team:team||'la comunidad',user,leader:raceStatus});
+ say('featured',text);
+}
+function announceTurbo(team){
+ const name=String(team||'').trim();if(!name)return;
+ const text=EN()?'Turbo for team '+name+'!':fill(LV('turbo').say||'¡Turbo para el equipo {team}!',{team:name});
+ say('turbo',text);
+}
+announceRace();
+window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues,announceFeaturedFan,announceTurbo,announceRace};
 })();
 </script>
 <!-- ===== v19: ROTACION DE LOS DOS CLASICOS, LISTA EN EL BACK Y MOTOR DE ESTADISTICAS POR VS. Olimpia-Cerro y Barcelona-Real Madrid se alternan al llegar a cero. Todo se guarda en cluss.vs. Boton 🆚 = panel. ===== -->
@@ -5610,16 +5652,17 @@ const safe=f=>{try{return f()}catch(e){return undefined}};
 const M=window.liveEventMonitor;
 if(!M||!safe(()=>CLASSIC_DEFS)||!safe(()=>SRV)||!safe(()=>T)||!safe(()=>P))return;
 const K='cluss.vs',key=(a,b)=>[a,b].sort().join('|');
-const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm')]),CONFIG_VERSION=8,PREVIOUS_CONFIG_VERSION=7,LEGACY_CONFIG_VERSION=6,OLDER_CONFIG_VERSION=5;
+const STARTER_KEY=key('ol','cp'),STARTER_KEYS=new Set([STARTER_KEY,key('ucl-bc','ucl-rm'),key('ca-py','ca-ar'),key('ca-py','ca-br')]),CONFIG_VERSION=9,PREVIOUS_CONFIG_VERSION=8,LEGACY_CONFIG_VERSION=7,OLDER_CONFIG_VERSION=6;
 const nmOf=id=>{const n=String(safe(()=>tournamentItem(id).n)||id);return n[0]+n.slice(1).toLowerCase()};
 const DEF=CLASSIC_DEFS.map(d=>({k:key(d[0],d[1]),a:d[0],b:d[1],n:d[2],on:STARTER_KEYS.has(key(d[0],d[1])),popular:STARTER_KEYS.has(key(d[0],d[1]))}));
 /* ---------- LISTA + ESTADISTICAS (documento del SERVIDOR: GET/PUT /api/state/cluss.vs) ---------- */
 const raw=safe(()=>SRV.get(K,null))||{};
 const hasCurrentConfig=raw.v===CONFIG_VERSION;
 const hasPreviousConfig=raw.v===PREVIOUS_CONFIG_VERSION;
-const hasModernConfig=hasCurrentConfig||hasPreviousConfig;
-const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION,4,3].includes(raw.v)&&Array.isArray(raw.list));
-const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||[LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION].includes(raw.v))&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:hasCurrentConfig?raw.loopEnabled!==false:false,showHonorGifts:hasCurrentConfig?raw.showHonorGifts===true:false,list:[]};
+const hasOlderModernConfig=raw.v===7;
+const hasModernConfig=hasCurrentConfig||hasPreviousConfig||hasOlderModernConfig;
+const hasStoredConfig=hasModernConfig||([LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION,5,4,3].includes(raw.v)&&Array.isArray(raw.list));
+const D={cur:hasStoredConfig?raw.cur||'':STARTER_KEY,np:(hasModernConfig||[LEGACY_CONFIG_VERSION,OLDER_CONFIG_VERSION].includes(raw.v))&&typeof raw.np==='string'?raw.np:'',raceList:hasModernConfig&&Array.isArray(raw.raceList)?raw.raceList.filter(x=>x&&typeof x.k==='string').map(x=>({k:x.k,played:x.played===true})):[],st:(raw.st&&typeof raw.st==='object')?raw.st:{},loopEnabled:hasCurrentConfig||hasPreviousConfig?raw.loopEnabled!==false:false,showHonorGifts:hasCurrentConfig||hasPreviousConfig?raw.showHonorGifts===true:false,list:[]};
 (hasStoredConfig&&Array.isArray(raw.list)?raw.list:[]).forEach(x=>{const d=DEF.find(y=>y.k===x.k);if(d&&!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d,{on:x.on!==false,popular:hasModernConfig?x.popular===true:STARTER_KEYS.has(x.k)}))});
 DEF.forEach(d=>{if(!D.list.some(y=>y.k===d.k))D.list.push(Object.assign({},d))}); /* VS nuevos al final */
 const save=()=>safe(()=>SRV.set(K,{v:CONFIG_VERSION,cur:D.cur,np:D.np,list:D.list.map(x=>({k:x.k,on:x.on,popular:x.popular})),raceList:D.raceList.map(x=>({k:x.k,played:x.played})),st:D.st,loopEnabled:D.loopEnabled,showHonorGifts:D.showHonorGifts}));
@@ -5887,95 +5930,64 @@ schedule();
  addEventListener('resize',exacto);exacto();
 })();
 </script>
-<!-- ===== REGALO EN LA META (solo visual): donde decia META ahora va el avatar, usuario y regalo del ultimo regalo REAL de ese equipo (rosita si no hay). Cada regalo reemplaza al anterior y dispara 10 s de festejo. Lee los eventos reales; no suma puntos, no frena a nadie ni decide ganadores. ===== -->
-<style id="regalo-meta-css">
-.gp{position:absolute;left:50%;top:19px;transform:translateX(-50%);width:calc(100% - 16px);height:42px;z-index:7;pointer-events:none;display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:12px;background:rgba(13,6,2,.94);border:2px solid transparent;color:#fff;font-family:Inter,sans-serif;overflow:hidden}
-.gp.idle{width:auto;height:auto;padding:0;gap:0;border:0;background:none;overflow:visible;left:calc(50% + 24px);top:5.6%;transform:translateY(-50%)}
-.gp .gpr{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px #000)}
-.gp .gpr img{display:block;width:26px;height:26px;object-fit:contain}
-.gp.idle .gpr{font-size:14px}.gp.idle .gpr img{width:16px;height:16px}
-.gp:not(.idle){border-color:#ffe14d;background:linear-gradient(#3a2409,#150c03)}
-.gp .gpa{flex:none;position:relative;width:34px;height:34px;border-radius:50%;border:2px solid #ffe14d;background:#3f2713;overflow:hidden;display:grid;place-items:center;font:900 16px/1 Inter,sans-serif;color:#fff}
-.gp .gpa img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.gp.fly .gpa{visibility:hidden}
-.gp .gpa.pop{animation:gpPop .5s cubic-bezier(.2,1.5,.4,1)}
-.gp .gpt{min-width:0;display:flex;flex-direction:column;gap:1px;flex:1}
-.gp .gpn,.gp .gpg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gp .gpn{font:900 12px/1.1 Inter,sans-serif;text-shadow:0 1px 2px #000}
-.gp .gpg{font:800 10px/1.1 Inter,sans-serif;color:#ffe14d}
-.gp.fx{animation:gpGlow .7s ease-in-out infinite alternate}
-.lane.gfx .sv{animation:gfxLane .8s ease-in-out infinite alternate}
-.gfly{position:absolute;left:0;top:0;z-index:9;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #fff;background:#3f2713;overflow:hidden;display:grid;place-items:center;font:900 14px/1 Inter,sans-serif;color:#fff;pointer-events:none;box-shadow:0 0 12px 3px #ffd566}
-.gfly img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.gthanks{position:absolute;left:50%;top:38%;z-index:10;transform:translate(-50%,-50%);max-width:94%;padding:6px 10px;border-radius:14px;border:3px solid #ffe14d;background:linear-gradient(#ffe9a8,#ffc83a);color:#3a2409;font:900 15px/1.15 Inter,sans-serif;text-align:center;box-shadow:0 0 18px 5px #ffd566;pointer-events:none;animation:gThx 3.2s ease-out forwards}
-.gthanks small{display:block;font:800 11px/1.2 Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gconf{position:absolute;top:-8%;z-index:8;pointer-events:none;font-size:16px;animation:gConf var(--d,3s) linear var(--w,0s) forwards;opacity:0}
+<!-- ===== DONADORES POR EQUIPO: cada carril muestra el último usuario que donó a ese equipo y conserva sus datos en el servidor entre carreras. ===== -->
+<style id="donor-meta-css">
+.donor-marker{position:absolute;left:5%;top:5.6%;z-index:8;display:flex;align-items:center;gap:3px;max-width:48%;padding:2px 4px;border:1px solid rgba(255,225,77,.75);border-radius:12px;background:rgba(13,6,2,.86);color:#fff;font:800 7px/1 Inter,sans-serif;pointer-events:none}
+.donor-marker[hidden]{display:none}
+.donor-marker img,.donor-marker .avatar{width:17px;height:17px;flex:none;border-radius:50%;object-fit:cover;background:#3f2713}
+.donor-marker .username{max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* META llamativa: dorada, grande, con brillo y pulso */
-.sv>svg>text[text-anchor="middle"]{font-size:13px!important;font-weight:900!important;letter-spacing:2px;fill:#ffe14d!important;stroke:#3a1d00;stroke-width:2.2px;paint-order:stroke;transform-box:fill-box;transform-origin:50% 50%;filter:drop-shadow(0 0 4px #ffd566);animation:metaPulse 1.1s ease-in-out infinite alternate,metaShine 2.2s linear infinite}
-#sv0 .gp.idle{left:15%}
-#sv1 .gp.idle{left:85%}
+.sv>svg>text.meta-label{text-anchor:end!important;font-size:13px!important;font-weight:900!important;letter-spacing:2px;fill:#ffe14d!important;stroke:#3a1d00;stroke-width:2.2px;paint-order:stroke;transform-box:fill-box;transform-origin:100% 50%;filter:drop-shadow(0 0 4px #ffd566);animation:metaPulse 1.1s ease-in-out infinite alternate,metaShine 2.2s linear infinite}
 @keyframes metaPulse{from{transform:scale(1)}to{transform:scale(1.18)}}
 @keyframes metaShine{0%,100%{fill:#ffe14d;filter:drop-shadow(0 0 3px #ffd566)}35%{fill:#fff;filter:drop-shadow(0 0 8px #fff)}70%{fill:#ff9a3d;filter:drop-shadow(0 0 7px #ff7a1a)}}
-@media (prefers-reduced-motion:reduce){.sv>svg>text[text-anchor="middle"]{animation:none}}
-@keyframes gpPop{from{transform:scale(0)}60%{transform:scale(1.35)}}
-@keyframes gpGlow{to{box-shadow:0 0 14px 4px #ffd566;transform:translateX(-50%) scale(1.04)}}
-@keyframes gfxLane{to{box-shadow:inset 0 0 0 1px #3f2713,0 0 14px 3px #ffd566}}
-@keyframes gThx{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}22%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1)}}
-@keyframes gConf{0%{opacity:0;transform:translateY(0) rotate(0)}10%{opacity:1}100%{opacity:.9;transform:translateY(105vh) rotate(540deg)}}
-@media (prefers-reduced-motion:reduce){.gp.fx,.lane.gfx .sv,.gthanks,.gconf,.gp .gpa.pop{animation:none}.gconf{display:none}}
+@media (prefers-reduced-motion:reduce){.sv>svg>text.meta-label{animation:none}}
 </style>
 <style id="notification-layer">
-#event-alerts,#toast,#hype,.ev,.gthanks{z-index:13!important}
+#event-alerts,#toast,#hype,.ev{z-index:13!important}
 </style>
-<script id="regalo-meta-js">
+<script id="donor-meta-js">
 (function(){
  'use strict';
- const lanes=document.getElementById('lanes');if(!lanes)return;
- const DUR=10000,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
- const timers={},raf={};
+ const lanes=document.getElementById('lanes');if(!lanes||!window.SRV)return;
+ const STORE='cluss.honorLastGiftTeams';
+ const saved=window.SRV.get(STORE,{});
+ const state=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
+ if(!state.teams||typeof state.teams!=='object')state.teams={};
  const https=v=>/^https:\/\//i.test(String(v||''));
- const pickAvatar=e=>[e.profilePictureUrl,e.profilePicture,e.avatarUrl,e.avatar,e.userImage,e.imageUrl].find(https)||'';
- const giftOf=e=>String(e.giftName||e.gift_name||e.gift||e.giftId||'Regalo');
-/* regalo en reposo: el mismo catalogo que ya consume Honor (GET /api/gifts/catalog y evento gift-config); cambia en cada carrera. Sin catalogo queda la rosita */
- const ROSE={key:'rose',name:'Rosa',emoji:'🌹',imageUrl:''};let cat=[ROSE],gi=0;
- const nk=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
- function idleNode(){const c=cat[gi]||ROSE,sp=document.createElement('span');sp.className='gpr';sp.setAttribute('aria-hidden','true');sp.title=c.name;
-  if(c.imageUrl){const im=new Image();im.referrerPolicy='no-referrer';im.alt='';im.onerror=()=>{sp.textContent=c.emoji};im.src=c.imageUrl;sp.appendChild(im)}else sp.textContent=c.emoji;return sp}
- function repintaIdle(){[0,1].forEach(i=>{const sv=document.getElementById('sv'+i),g=sv&&sv.querySelector('.gp.idle');if(g){g.textContent='';g.appendChild(idleNode())}})}
- function setCat(v){try{const src=Array.isArray(v&&v.catalog)?v.catalog:Array.isArray(v)?v:[];
-  const n=src.filter(x=>x&&typeof x.key==='string'&&x.enabled!==false).map(x=>({key:nk(x.key),name:String(x.name||x.key),emoji:x.emoji||x.icon||'🎁',imageUrl:https(x.imageUrl||x.avatarUrl)?(x.imageUrl||x.avatarUrl):''})).filter(x=>x.key);
-  cat=n.length?n:[ROSE];gi=Math.min(gi,cat.length-1);repintaIdle()}catch(e){console.error(e)}}
- try{const c=SRV.get('cluss.gifts',null);if(c)setCat(c)}catch(e){}
- fetch('/api/gifts/catalog',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j)setCat(j)}).catch(()=>{});
- addEventListener('gift-config-update',e=>setCat(e.detail));
- addEventListener('honor:race-start',()=>{gi=(gi+1)%cat.length;[0,1].forEach(idle)});
- function panel(i){const sv=document.getElementById('sv'+i);if(!sv)return null;let g=sv.querySelector('.gp');
-  if(!g){g=document.createElement('div');g.className='gp idle';g.setAttribute('aria-live','polite');g.appendChild(idleNode());sv.appendChild(g)}return g}
- function avatarEl(cls,url,name){const d=document.createElement('div');d.className=cls;d.textContent=(String(name||'?').charAt(0)||'?').toUpperCase();
-  if(url){const im=new Image();im.referrerPolicy='no-referrer';im.alt='';im.onload=()=>{d.textContent='';d.appendChild(im)};im.src=url}return d}
- function idle(i){const g=panel(i);if(!g)return;stop(i);g.className='gp idle';g.textContent='';g.appendChild(idleNode())}
- function stop(i){clearTimeout(timers[i]);cancelAnimationFrame(raf[i]);const sv=document.getElementById('sv'+i),ln=document.getElementById('ln'+i);
-  if(sv)sv.querySelectorAll('.gfly,.gthanks,.gconf').forEach(n=>n.remove());if(ln)ln.classList.remove('gfx');const g=sv&&sv.querySelector('.gp');if(g)g.classList.remove('fx','fly')}
- function celebrate(i,e){const sv=document.getElementById('sv'+i),ln=document.getElementById('ln'+i),g=panel(i);if(!sv||!g)return;
-  stop(i);const user=String(e.username||'').replace(/^@+/,''),gift=giftOf(e),url=pickAvatar(e);
-  g.className='gp';g.innerHTML='';const av=avatarEl('gpa',url,user),t=document.createElement('div'),n=document.createElement('div'),gg=document.createElement('div');
-  t.className='gpt';n.className='gpn';n.textContent='@'+user;gg.className='gpg';gg.textContent='🎁 '+gift;t.append(n,gg);g.append(av,t);
-  const thx=document.createElement('div');thx.className='gthanks';thx.textContent='¡GRACIAS @'+user+'!';const sm=document.createElement('small');sm.textContent='🎁 '+gift;thx.appendChild(sm);
-  if(reduce){sv.appendChild(thx);timers[i]=setTimeout(()=>thx.remove(),DUR);return}
-  g.classList.add('fx','fly');ln.classList.add('gfx');sv.appendChild(thx);
-  for(let k=0;k<26;k++){const c=document.createElement('span');c.className='gconf';c.textContent=['🎉','⭐','🎁','✨','🌹','💛'][k%6];c.style.left=(4+Math.random()*92)+'%';c.style.setProperty('--d',(2.4+Math.random()*1.8)+'s');c.style.setProperty('--w',(Math.random()*(DUR/1000-4.5))+'s');sv.appendChild(c)}
-  const fly=avatarEl('gfly',url,user);sv.appendChild(fly);const t0=performance.now();
-  (function step(now){const u=Math.min(1,(now-t0)/DUR),w=sv.clientWidth,h=sv.clientHeight,e2=u*u*(3-2*u),R=(w*.32)*(1-e2*.85),a=u*Math.PI*2*3;
-   const cy=h*.85+(g.offsetTop+g.offsetHeight/2-h*.85)*e2;fly.style.transform='translate('+(w/2+R*Math.cos(a))+'px,'+(cy+R*.55*Math.sin(a))+'px)';
-   if(u<1)raf[i]=requestAnimationFrame(step);else{fly.remove();g.classList.remove('fly');av.classList.add('pop')}})(t0);
-  timers[i]=setTimeout(()=>{g.classList.remove('fx');ln.classList.remove('gfx');sv.querySelectorAll('.gconf,.gthanks').forEach(x=>x.remove())},DUR+300)}
- /* regalos REALES: se toma el equipo que ya resolvio el motor al llamar push(); no se inventa ni se simula nada */
+ function save(){window.SRV.set(STORE,state)}
+ function saveSides(){
+  const swapped=lanes.classList.contains('swapped'),left=swapped?T[1]:T[0],right=swapped?T[0]:T[1];
+  state.leftTeamId=left&&left.id||'';state.rightTeamId=right&&right.id||'';save();
+ }
+ function render(i){
+  const sv=document.getElementById('sv'+i);if(!sv)return;
+  let marker=sv.querySelector('.donor-marker');
+  if(!marker){marker=document.createElement('div');marker.className='donor-marker';marker.setAttribute('aria-label','Último donador del equipo');sv.appendChild(marker)}
+  const record=state.teams[T[i]&&T[i].id];
+  marker.replaceChildren();
+  if(!record){marker.hidden=true;return}
+  marker.hidden=false;
+  if(https(record.avatarUrl)){const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;marker.appendChild(image)}
+  else{const initial=document.createElement('span');initial.className='avatar';initial.textContent=String(record.displayName||record.username||'?').trim().charAt(0).toUpperCase();marker.appendChild(initial)}
+  const username=document.createElement('span');username.className='username';username.textContent='@'+String(record.username||'').replace(/^@+/,'');marker.appendChild(username);
+  marker.title='Último donador de '+(T[i].n||T[i].id)+': @'+String(record.username||'');
+ }
+ function renderAll(){saveSides();[0,1].forEach(render)}
+ function remember(i,e){
+  const team=T[i];if(!team||!e)return;
+  const username=String(e.username||'').trim().replace(/^@+/,'');if(!username)return;
+  state.teams[team.id]={teamId:team.id,teamName:team.n,username,displayName:String(e.displayName||username),
+   avatarUrl:[e.profilePictureUrl,e.profilePicture,e.avatarUrl,e.avatar,e.userImage,e.imageUrl].find(https)||'',
+   giftName:String(e.giftName||e.gift_name||e.gift||''),giftDiamonds:Number(e.giftDiamonds)||0,
+   activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:e.receivedAt||new Date().toISOString()};
+  saveSides();save();render(i);
+ }
+ /* Solo guarda la atribucion del regalo que el motor asigno realmente a ese equipo. */
  let pending=null;
  if(typeof handleLiveEntry==='function'){const hle=handleLiveEntry;handleLiveEntry=function(e){pending=e&&e.type==='gift'&&!e.bot&&e.username?e:null;try{return hle.apply(this,arguments)}finally{pending=null}}}
- if(typeof push==='function'){const pu=push;push=function(i,type){const r=pu.apply(this,arguments);if(type==='gift'&&pending&&i>=0){try{celebrate(i,pending)}catch(x){console.error(x)}}return r}}
- if(typeof reset==='function'){const rs=reset;reset=function(){const r=rs.apply(this,arguments);[0,1].forEach(idle);return r}}
- function asegura(){[0,1].forEach(i=>{const sv=document.getElementById('sv'+i);if(sv&&!sv.querySelector('.gp'))panel(i)})}
- new MutationObserver(asegura).observe(lanes,{childList:true});asegura();
+ if(typeof push==='function'){const pu=push;push=function(i,type){const r=pu.apply(this,arguments);if(type==='gift'&&pending&&i>=0){try{remember(i,pending)}catch(error){console.error('No se pudo guardar el último donador del equipo.',error)}}return r}}
+ if(typeof reset==='function'){const rs=reset;reset=function(){const r=rs.apply(this,arguments);renderAll();return r}}
+ renderAll();
 })();
 </script>
 </body>

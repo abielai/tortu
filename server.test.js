@@ -73,6 +73,17 @@ test('idle visual advance waits 15 seconds, alternates teams at two meters per s
   assert.deepEqual(Array.from(advance.update(54000, 37000, true)), [2, 2]);
 });
 
+test('idle visual advance pauses the inactive team for three seconds when its rival advances', () => {
+  const browser = { window: {} };
+  runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
+  const advance = browser.window.TORTUWORLD_ACTIVITY_POLICY.createIdleVisualAdvance();
+  advance.reset(0);
+  assert.deepEqual(Array.from(advance.update(16000, 0, true, [0, 19000])), [2, 0]);
+  assert.deepEqual(Array.from(advance.update(18000, 0, true, [0, 19000])), [4, 0]);
+  assert.deepEqual(Array.from(advance.update(20000, 0, true, [0, 19000])), [6, 0]);
+  assert.deepEqual(Array.from(advance.update(21000, 0, true, [0, 19000])), [6, 2]);
+});
+
 test('gift turbo distance is 10 meters plus 5 meters per diamond for each gift unit', () => {
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
@@ -135,6 +146,8 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
     addEventListener() {}
   });
   runInNewContext(script, sandbox);
+  window.vozPrioridad.clear();
+  spoken.length = 0;
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'aná', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
   assert.deepEqual(spoken, ['Gracias Ana por enviar 1 Rosa. Tu equipo Olimpia entra en modo turbo y tu foto queda en el cuadro de honor.']);
@@ -150,8 +163,9 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   assert.equal(donTortuEnabled, false);
   listeners.get('voice-config-update')({ detail: { enabledLevels: { gift: false } } });
   assert.equal(window.getVoiceMonitorState().levels.find(level => level.id === 'gift').enabled, false);
+  const spokenBeforeDisabledGift = spoken.length;
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'Beto', username: 'beto' });
-  assert.equal(spoken.length, 1);
+  assert.equal(spoken.length, spokenBeforeDisabledGift);
   listeners.get('voice-config-update')({ detail: { enabledLevels: { gift: true } } });
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'Beto', username: 'beto' });
   window.liveEventMonitor.receive({ type: 'chat', displayName: 'Carla', username: 'carla', content: 'Hola' });
@@ -166,7 +180,94 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   for (const queue of Object.values(legacyQueues)) assert.equal(queue.length, 0);
   assert.equal(sandbox.activeVoiceRequest, null);
   assert.equal(sandbox.giftSpeaking, false);
-  assert.equal(sandbox.giftSpeechGeneration, 1);
+  assert.equal(sandbox.giftSpeechGeneration, 2);
+});
+
+test('race starts announce both teams and queue tap-tap support in the second voice', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const spoken = [];
+  const browser = {
+    window: {
+      speechSynthesis: {
+        speak: utterance => spoken.push(utterance),
+        cancel() {},
+        getVoices: () => [],
+        addEventListener() {}
+      },
+      liveEventMonitor: { receive(event) { return event; } },
+      I18N: { en: false },
+      addEventListener() {}
+    },
+    T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
+    S: [{ p: 0 }, { p: 0 }],
+    P: { vo: 1 },
+    over: false,
+    fetch: () => Promise.resolve({ ok: false }),
+    setInterval: () => 0,
+    setTimeout: () => 0,
+    clearTimeout() {},
+    addEventListener() {},
+    SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
+  };
+  runInNewContext(script, browser);
+  assert.match(spoken[0].text, /Olimpia y Cerro/);
+  assert.equal(browser.window.getVoiceMonitorState().queue.find(item => item.id === 'support')?.role, 'notifications');
+  assert.equal(browser.window.getVoiceMonitorState().queue.find(item => item.id === 'support')?.priority, 5);
+});
+
+test('last donors persist by team, render without gift details, and survive race reset', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="donor-meta-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const savedStates = {};
+  const markers = [null, null];
+  const lanes = { classList: { contains: () => false } };
+  const sv = [0, 1].map(index => ({
+    children: [],
+    querySelector(selector) { return selector === '.donor-marker' ? markers[index] : null; },
+    appendChild(child) { this.children.push(child); if (child.className === 'donor-marker') markers[index] = child; }
+  }));
+  const makeNode = tag => ({
+    tagName: tag,
+    children: [],
+    attrs: {},
+    hidden: false,
+    setAttribute(name, value) { this.attrs[name] = value; },
+    replaceChildren(...children) { this.children = children; },
+    appendChild(child) { this.children.push(child); }
+  });
+  const context = {
+    window: { SRV: {
+      get: key => savedStates[key],
+      set: (key, value) => { savedStates[key] = value; }
+    } },
+    document: {
+      getElementById: id => id === 'lanes' ? lanes : id === 'sv0' ? sv[0] : id === 'sv1' ? sv[1] : null,
+      createElement: makeNode
+    },
+    T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
+    handleLiveEntry() { context.push(0, 'gift'); },
+    push() { return true; },
+    reset() { return true; },
+    console,
+    Date,
+    String,
+    Number,
+    Math
+  };
+  runInNewContext(script, context);
+  context.handleLiveEntry({
+    type: 'gift', username: 'ana', displayName: 'Ana', profilePictureUrl: 'https://example.test/ana.jpg',
+    giftName: 'Rosa', giftDiamonds: 1, activityCount: 2, receivedAt: '2025-01-01T00:00:00.000Z'
+  });
+  assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
+  assert.equal(savedStates['cluss.honorLastGiftTeams'].rightTeamId, 'cp');
+  assert.equal(markers[0].children[1].textContent, '@ana');
+  assert.doesNotMatch(markers[0].children.map(child => child.textContent).join(' '), /Rosa|🎁/);
+  context.reset();
+  assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
 });
 
 test('main voice announces only the four milestones and names the losing team', () => {
@@ -200,6 +301,8 @@ test('main voice announces only the four milestones and names the losing team', 
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
   runInNewContext(script, browser);
+  browser.window.vozPrioridad.clear();
+  spoken.length = 0;
   const announceMilestones = intervals.filter(interval => interval.ms === 1000).at(-1).callback;
   for (const [index, milestone] of [20, 50, 80, 90].entries()) {
     browser.S[0].p = milestone;
@@ -296,6 +399,8 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
   runInNewContext(script, browser);
+  browser.window.vozPrioridad.clear();
+  spoken.length = 0;
 
   const server = createServer((req, res) => void handle(req, res));
   server.listen(0, '127.0.0.1');
@@ -393,7 +498,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
         .slice()
         .sort((a, b) => a.priority - b.priority)
         .map(level => [level.id, level.priority]))),
-      [['gift', 0], ['move', 1], ['chat', 2], ['welcome', 3], ['action', 3], ['match', 4]]
+      [['gift', 0], ['move', 1], ['chat', 2], ['turbo', 3], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4], ['support', 5]]
     );
     const enabled = Object.fromEntries(browser.window.getVoiceMonitorState().levels.map(level => [level.id, level.enabled]));
     assert.equal(enabled.welcome, false);
@@ -712,7 +817,7 @@ test('local backend defaults to key 123 without weakening production', async () 
   }
 });
 
-test('backend VS settings default to the two requested fixtures and validate saved selections', async () => {
+test('backend VS settings rotate the four requested fixtures and validate saved selections', async () => {
   const previousToken = process.env.BACKEND_ADMIN_TOKEN;
   process.env.BACKEND_ADMIN_TOKEN = 'vs-config-test-token';
   const server = createServer((req, res) => void handle(req, res));
@@ -742,13 +847,15 @@ test('backend VS settings default to the two requested fixtures and validate sav
     assert.equal(defaults.status, 200);
     const defaultConfig = await defaults.json();
     const defaultList = defaultConfig.list;
-    assert.equal(defaultList.length, 2);
-    assert.deepEqual(defaultList.filter(item => item.on).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
-    assert.deepEqual(defaultList.filter(item => item.popular).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
+    assert.equal(defaultList.length, 4);
+    assert.deepEqual(defaultList.filter(item => item.on).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
+    assert.deepEqual(defaultList.filter(item => item.popular).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
     assert.deepEqual(defaultConfig.raceList.map(item => [item.k, item.played]), [
-      ['cp|ol', false], ['ucl-bc|ucl-rm', false]
+      ['cp|ol', false], ['ucl-bc|ucl-rm', false], ['ca-ar|ca-py', false], ['ca-br|ca-py', false]
     ]);
     assert.ok(defaultConfig.teams.some(team => team.id === 'ct-ar' && team.flag === '🇦🇷'));
+    assert.ok(defaultConfig.teams.some(team => team.id === 'ca-py' && team.flag === '🇵🇾'));
+    assert.ok(defaultConfig.teams.some(team => team.id === 'ca-br' && team.flag === '🇧🇷'));
     assert.ok(defaultConfig.teams.some(team => team.id === 'cl-cel' && team.flag === '🟢⚪'));
 
     await fetch(`${baseUrl}/api/state/cluss.vs`, {
@@ -763,8 +870,8 @@ test('backend VS settings default to the two requested fixtures and validate sav
     });
     const migrated = await fetch(`${baseUrl}/api/admin/vs-config`, { headers });
     const migratedList = (await migrated.json()).list;
-    assert.deepEqual(migratedList.filter(item => item.on).map(item => item.k), ['ucl-bc|ucl-rm']);
-    assert.deepEqual(migratedList.filter(item => item.popular).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
+    assert.deepEqual(migratedList.filter(item => item.on).map(item => item.k), ['ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
+    assert.deepEqual(migratedList.filter(item => item.popular).map(item => item.k), ['cp|ol', 'ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
 
     const saved = await fetch(`${baseUrl}/api/admin/vs-config`, {
       method: 'POST',
@@ -927,12 +1034,19 @@ test('honor backend keeps the latest gift sender, avatar, and gift icon', async 
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   let previousState;
   let hadPreviousState = false;
+  let previousTeamDonors;
+  let hadPreviousTeamDonors = false;
 
   try {
     const savedState = await fetch(`${baseUrl}/api/state/cluss.honorLastGift`);
     if (savedState.ok) {
       hadPreviousState = true;
       previousState = await savedState.json();
+    }
+    const savedTeamDonors = await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`);
+    if (savedTeamDonors.ok) {
+      hadPreviousTeamDonors = true;
+      previousTeamDonors = await savedTeamDonors.json();
     }
 
     const id = `honor-last-gift-${Date.now()}`;
@@ -968,6 +1082,23 @@ test('honor backend keeps the latest gift sender, avatar, and gift icon', async 
     }
     assert.equal(persisted?.username, 'honor-fan');
 
+    const teams = {
+      leftTeamId: 'ol',
+      rightTeamId: 'cp',
+      teams: {
+        ol: { teamId: 'ol', username: 'left-donor', displayName: 'Left Donor' },
+        cp: { teamId: 'cp', username: 'right-donor', displayName: 'Right Donor' }
+      }
+    };
+    const savedDonors = await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(teams)
+    });
+    assert.equal(savedDonors.status, 200);
+    const loadedDonors = await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`);
+    assert.deepEqual(await loadedDonors.json(), teams);
+
   } finally {
     if (hadPreviousState) {
       await fetch(`${baseUrl}/api/state/cluss.honorLastGift`, {
@@ -977,6 +1108,15 @@ test('honor backend keeps the latest gift sender, avatar, and gift icon', async 
       });
     } else {
       await fetch(`${baseUrl}/api/state/cluss.honorLastGift`, { method: 'DELETE' });
+    }
+    if (hadPreviousTeamDonors) {
+      await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(previousTeamDonors)
+      });
+    } else {
+      await fetch(`${baseUrl}/api/state/cluss.honorLastGiftTeams`, { method: 'DELETE' });
     }
     await new Promise(resolve => server.close(resolve));
   }
@@ -1013,7 +1153,7 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     assert.equal(defaultConfig.repeatCooldownMinutes, 1);
     assert.equal(defaultConfig.donTortuEnabled, true);
     assert.ok(Object.values(defaultConfig.enabledLevels).length > 0);
-    for (const level of ['gift', 'move', 'chat', 'match']) assert.equal(defaultConfig.enabledLevels[level], true);
+    for (const level of ['gift', 'move', 'chat', 'match', 'support']) assert.equal(defaultConfig.enabledLevels[level], true);
     for (const level of ['welcome', 'action']) assert.equal(defaultConfig.enabledLevels[level], false);
     const deniedOverlayToggle = await fetch(`${baseUrl}/api/overlay/don-tortu`, {
       method: 'POST',
@@ -1128,6 +1268,8 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   const fixtures = [
     ['ol', 'cp', 'Superclásico'],
     ['ucl-bc', 'ucl-rm', 'El Clásico'],
+    ['ca-py', 'ca-ar', 'Paraguay vs Argentina'],
+    ['ca-py', 'ca-br', 'Paraguay vs Brasil'],
   ];
   const listeners = new Map();
   const app = { appendChild() {} };
@@ -1187,10 +1329,10 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   runInNewContext(script, context);
 
   const vs = window.gamiVS;
-  assert.deepEqual(Array.from(vs.data.list.filter(item => item.on), item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
-  assert.deepEqual(Array.from(vs.data.list.filter(item => item.popular), item => item.k), ['cp|ol', 'ucl-bc|ucl-rm']);
+  assert.deepEqual(Array.from(vs.data.list.filter(item => item.on), item => item.k), ['cp|ol', 'ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
+  assert.deepEqual(Array.from(vs.data.list.filter(item => item.popular), item => item.k), ['cp|ol', 'ucl-bc|ucl-rm', 'ca-ar|ca-py', 'ca-br|ca-py']);
   assert.deepEqual(Array.from(vs.data.raceList, item => [item.k, item.played]), [
-    ['cp|ol', false], ['ucl-bc|ucl-rm', false]
+    ['cp|ol', false], ['ucl-bc|ucl-rm', false], ['ca-ar|ca-py', false], ['ca-br|ca-py', false]
   ]);
   assert.equal(vs.data.loopEnabled, false);
   assert.equal(vs.data.showHonorGifts, false);
@@ -1275,9 +1417,9 @@ test('overlay retains the active VS until inactivity and resets cups only on the
   runInNewContext(script, context);
   assert.equal(window.gamiVS.data.showHonorGifts, false, 'previously saved default-on gift display migrates to hidden');
   assert.equal(window.gamiVS.data.np, '');
-  assert.equal(window.gamiVS.data.loopEnabled, false, 'old saved loop mode migrates to the two-classic rotation');
+  assert.equal(window.gamiVS.data.loopEnabled, false, 'old saved loop mode migrates to the rotating fixtures');
   assert.deepEqual(Array.from(window.gamiVS.data.raceList, item => [item.k, item.played]), [['cp|ol', true]]);
-  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 8 && item.value.showHonorGifts === false));
+  assert.ok(savedStates.some(item => item.key === 'cluss.vs' && item.value.v === 9 && item.value.showHonorGifts === false));
 });
 
 test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts local', async () => {
@@ -1504,6 +1646,9 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.match(html, /id="applyEventFilters"/);
     assert.match(html, /\.event-row\[hidden\]\{display:none\}/);
     assert.match(html, /id="copyEvents"/);
+    assert.match(html, /id="copyLeftDonor"/);
+    assert.match(html, /id="copyRightDonor"/);
+    assert.match(html, /id="copyTeamDonors"/);
     assert.match(html, /ÚLTIMOS 50/);
     assert.match(html, /<aside class="event-filters" aria-label="Filtrar eventos">/);
     for (const type of ['member', 'chat', 'like', 'follow', 'share', 'gift']) {
@@ -2145,6 +2290,7 @@ test('raw TikTok likes pass the frontend statistics and per-team tap counter', (
     const heartElement = {classList:{remove(){},add(){}}, offsetWidth:0};
     const $ = () => heartElement, tapStep = () => {}, renderHeart = () => {}, tapPop = () => {};
     const update = () => 0, turboOn = team => { activations[team]++ }, float = () => {}, hype = () => {}, A = {sfx(){}};
+    const noteTeamAdvance = () => {};
     const recentChatTeam = () => -1, trackTournamentMentions = () => false, trackLaneInteraction = () => {};
     const push = () => {}, stUser = () => {}, saveTournamentProgress = () => {}, logStat = () => {}, stFmt = String;
     const DUELO = [];
@@ -2235,10 +2381,14 @@ test('voice-priority response matches the overlay speech template contract', () 
   assert.match(levels.chat.say, /\{text\}/);
   assert.deepEqual(Object.keys(levels.action.say).sort(), ['follow', 'like', 'share']);
   assert.deepEqual(Object.keys(levels.match.say).sort(), ['final', 'normal', 'start', 'win']);
+  assert.match(levels.match.say.start, /\{teamA\}/);
+  assert.match(levels.match.say.start, /\{teamB\}/);
+  assert.match(levels.support.say, /tap tap/);
+  assert.equal(levels.support.priority, 5);
   assert.match(levels.match.say.normal, /\{leadM\}/);
   assert.match(levels.match.say.normal, /\{otherM\}/);
   assert.match(levels.welcome.say, /\{user\}/);
-  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4]);
+  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match', 'support'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4, 5]);
   assert.equal(levels.gift.ttlMs, 0);
   assert.equal(levels.gift.max, 0);
 });
