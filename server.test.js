@@ -2433,10 +2433,11 @@ test('voice-priority response matches the overlay speech template contract', () 
   assert.match(levels.match.say.start, /\{teamA\}/);
   assert.match(levels.match.say.start, /\{teamB\}/);
   assert.equal(levels.support, undefined);
+  assert.equal(levels.turbo.priority, -1);
   assert.match(levels.match.say.normal, /\{leadM\}/);
   assert.match(levels.match.say.normal, /\{otherM\}/);
   assert.match(levels.welcome.say, /\{user\}/);
-  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4]);
+  assert.deepEqual(['turbo', 'gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [-1, 0, 1, 2, 3, 3, 4]);
   assert.equal(levels.gift.ttlMs, 0);
   assert.equal(levels.gift.max, 0);
 });
