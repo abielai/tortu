@@ -224,7 +224,7 @@
  PARTE 6 - VOZ EN OFF (tabla de prioridad)
 ========================================================================================================
  El frontend habla por una cola de prioridad (capa voz-prioridad-js, al final del HTML). La tabla puede venir del backend: GET /api/voice-priority.
-  Forma:  {"trackMeters":100,"levels":[{id,priority,ttlMs,max,interrupt?,say,coalesceMs?,everyMs?,quietMs?,maxChars?}, ...]}   (menor priority = habla primero)
+  Forma:  {"trackMeters":100,"levels":[{id,priority,ttlMs,max,say,coalesceMs?,everyMs?,quietMs?,maxChars?}, ...]}   (menor priority = habla primero)
   Niveles por defecto del frontend:
    gift     priority 0  MAXIMA. Agradece cada regalo y dispara una alerta alegre desde 1 diamante; no expira ni descarta regalos.
    move     priority 1  Hincha que nombra un club o cambia de equipo. ttl 20 s, max 8 en cola.
@@ -1204,7 +1204,7 @@ const ST_VIEWS={
  usuarios(){const IC={chat:'💬',like:'❤️',follow:'➕',share:'↗️',member:'👋'},NM={chat:'comentó',like:'likes',follow:'siguió',share:'compartió',member:'se unió'};
   const l=Object.values(DB.users).sort((a,b)=>b.last-a.last);
   return l.length?l.map(u=>{const t=picks.get(u.name.toLowerCase()),events=u.ev.filter(event=>event.type!=='gift');return`<details data-u="${stH(u.name.toLowerCase())}"><summary><b>${stH(u.name)}</b> <span class="mut">${t!=null&&T[t]?T[t].n+' · ':''}${events.length} eventos · ${stTm(u.last)}</span></summary><div class="ue"></div></details>`}).join(''):'<p class="mut">Todavía no hay usuarios registrados.</p>'},
- voz(){const v=voiceSnapshot();return v&&v.levels?'<table><tr><th>Nivel</th><th>Prioridad</th><th>Interrumpe</th></tr>'+v.levels.map(x=>`<tr><td>${stH(x.id)}</td><td>${x.priority}</td><td>${x.interrupt?'Sí':'No'}</td></tr>`).join('')+'</table><p class="mut">Meta de narración: '+v.trackMeters+' m · Voz '+(v.enabled?'activa':'silenciada')+'</p>':'<p class="mut">Cargando prioridades de voz.</p>'},
+ voz(){const v=voiceSnapshot();return v&&v.levels?'<table><tr><th>Nivel</th><th>Prioridad</th></tr>'+v.levels.map(x=>`<tr><td>${stH(x.id)}</td><td>${x.priority}</td></tr>`).join('')+'</table><p class="mut">Meta de narración: '+v.trackMeters+' m · Voz '+(v.enabled?'activa':'silenciada')+'</p>':'<p class="mut">Cargando prioridades de voz.</p>'},
  honor(){const p=window.P||{},cups=p.cp||{},winners=Object.entries(cups).filter(([,count])=>Number(count)>0).sort((a,b)=>b[1]-a[1]);
   return'<p><b>Victorias de la serie:</b> '+(p.wins||[]).map((count,index)=>stH(T[index]?.n||'Equipo '+(index+1))+': '+(count||0)).join(' · ')+'</p><table><tr><th>Equipo</th><th>Copas</th></tr>'+(winners.length?winners.map(([id,count])=>`<tr><td>${stH(stClub(id))}</td><td>${count}</td></tr>`).join(''):'<tr><td colspan="2" class="mut">Todavía no hay copas.</td></tr>')+'</table>'+ST_VIEWS.torneos()},
  narrador(){const v=voiceSnapshot(),bub=document.getElementById('bub'),minutes=Math.ceil((v&&v.phraseCooldownMs||60000)/60000);
@@ -5394,15 +5394,15 @@ SS.speak=function(u){
 };
 /* 2) Tabla de prioridad (valor por defecto = la del backend) */
 const DEF_LEVELS=[
- {id:'move',priority:1,ttlMs:20000,max:8,interrupt:true,say:{to:'{user} se une a {team}',from:'{user} cambió de {from} a {team}'}},
- {id:'turbo',priority:3,ttlMs:12000,max:1,say:'¡Turbo para el equipo {team}!'},
+ {id:'move',priority:1,ttlMs:20000,max:8,say:{to:'{user} se une a {team}',from:'{user} cambió de {from} a {team}'}},
+ {id:'turbo',priority:-1,ttlMs:12000,max:1,say:'¡Turbo para el equipo {team}!'},
  {id:'featured',priority:3,ttlMs:30000,max:1,say:'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'},
  {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'}
 ];
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  DEF_LEVELS[0],DEF_LEVELS[1],
- {id:'gift',priority:0,ttlMs:0,max:0,interrupt:true,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
- {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,interrupt:true,say:'{user} dice: {text}'},
+ {id:'gift',priority:0,ttlMs:0,max:0,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
+ {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,say:'{user} dice: {text}'},
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
  {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
@@ -5447,7 +5447,7 @@ window.addEventListener('voice-config-update',event=>{
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
 const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
-window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
+window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
 const sameVoice=(a,b)=>!!a&&!!b&&(a===b||(a.voiceURI&&a.voiceURI===b.voiceURI)||(a.name===b.name&&a.lang===b.lang));
@@ -5462,11 +5462,6 @@ function pruneInteractions(now=Date.now()){
 }
 function silenceCommentator(){
  for(let i=Q.length-1;i>=0;i--)if(Q[i].id==='match'){releasePending(Q[i]);Q.splice(i,1)}
- if(cur&&cur.id==='match'){
-  queueGeneration++;cur=null;finishActiveSpeech=null;
-  try{SS.cancel()}catch(error){console.error('No se pudo silenciar al comentarista.',error)}
- }
- pump();
 }
 function purge(){const n=Date.now();for(let i=Q.length-1;i>=0;i--)if(Q[i].ttl>0&&n-Q[i].at>Q[i].ttl){releasePending(Q[i]);Q.splice(i,1)}}
 function clearLegacyQueues(){
@@ -5478,8 +5473,11 @@ function clearLegacyQueues(){
  if(typeof giftSpeaking!=='undefined')giftSpeaking=false;
  if(typeof giftSpeechGeneration!=='undefined')giftSpeechGeneration++;
 }
+function clearPendingQueue(){
+ Q.forEach(releasePending);Q.length=0;pendingPhrases.clear();clearLegacyQueues();
+}
 function clearQueue(){
- queueGeneration++;Q.forEach(releasePending);Q.length=0;pendingPhrases.clear();cur=null;finishActiveSpeech=null;clearLegacyQueues();
+ queueGeneration++;clearPendingQueue();cur=null;finishActiveSpeech=null;
  try{SS.cancel()}catch(e){}
 }
 function clearDisabledLevels(){
@@ -5494,10 +5492,6 @@ function say(id,text,force,skipRepeat){
  const same=Q.filter(x=>x.id===id),max=Number(L.max);if(max>0)while(same.length>=max){const removed=same.shift();releasePending(removed);Q.splice(Q.indexOf(removed),1)}
  if(force){const keep=Q.filter(x=>x.p<it.p);Q.forEach(item=>{if(!keep.includes(item))releasePending(item)});Q.splice(0,Q.length,...keep)}
  Q.push(it);Q.sort((a,b)=>a.p-b.p||a.at-b.at);
- if(cur&&L.interrupt&&it.p<cur.p){
-  try{SS.cancel()}catch(e){}
-  if(finishActiveSpeech)finishActiveSpeech();
- }
  pump();
 }
 function pump(){
@@ -5599,13 +5593,13 @@ setInterval(()=>{
  });
 },1000);
 const _cr=M.completeRound;
-if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arguments);clearQueue();return r};
+if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arguments);clearPendingQueue();return r};
 function announceRace(){
  const start=LV('match').say&&LV('match').say.start||'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.';
  say('match',fill(start,{teamA:nm(0),teamB:nm(1),track:TRACK()}),false,true);
 }
 if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(this,arguments);
- clearQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();announceRace();return r}}
+ clearPendingQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();announceRace();return r}}
 function announceFeaturedFan(username,team,leader){
  const user=String(username||'').trim().replace(/^@+/,'').slice(0,40);if(!user)return;
  const raceStatus=leader?leader+' va primero en la pista.':'La carrera está empatada.';

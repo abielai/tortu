@@ -176,7 +176,7 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   legacyQueues.narratorQueue.push({ text: 'old narrator' });
   window.liveEventMonitor.completeRound('ol');
   assert.equal(window.getVoiceMonitorState().queue.length, 0);
-  assert.equal(window.getVoiceMonitorState().current, '');
+  assert.match(window.getVoiceMonitorState().current, /Gracias Beto/);
   for (const queue of Object.values(legacyQueues)) assert.equal(queue.length, 0);
   assert.equal(sandbox.activeVoiceRequest, null);
   assert.equal(sandbox.giftSpeaking, false);
@@ -318,7 +318,7 @@ test('main voice announces only the four milestones and names the losing team', 
   assert.deepEqual(Array.from(browser.window.getVoiceMonitorState().spokenMilestones), [20, 50, 80, 90]);
 });
 
-test('main voice is silenced only after more than twenty live interactions in a minute', () => {
+test('high event volume lets the current main voice finish without interruption', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
@@ -358,8 +358,52 @@ test('main voice is silenced only after more than twenty live interactions in a 
   assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
   browser.window.liveEventMonitor.receive({ type: 'follow', username: 'fan20' });
   assert.equal(browser.window.getVoiceMonitorState().interactionCountLastMinute, 21);
-  assert.notEqual(browser.window.getVoiceMonitorState().currentRole, 'commentator');
-  assert.equal(cancelCount, 1);
+  assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+  assert.equal(cancelCount, 0);
+});
+
+test('turbo uses the first voice, jumps the queue, and never interrupts a phrase', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const spoken = [];
+  const timers = [];
+  const browser = {
+    window: {
+      speechSynthesis: {
+        speak: utterance => spoken.push(utterance),
+        cancel() {},
+        getVoices: () => [],
+        addEventListener() {}
+      },
+      liveEventMonitor: { receive(event) { return event; } },
+      I18N: { en: false },
+      addEventListener() {}
+    },
+    T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
+    S: [{ p: 0 }, { p: 0 }],
+    P: { vo: 1 },
+    over: false,
+    fetch: () => Promise.resolve({ ok: false }),
+    setInterval: () => 0,
+    setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; },
+    clearTimeout() {},
+    addEventListener() {},
+    SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
+  };
+  runInNewContext(script, browser);
+  browser.window.vozPrioridad.announceTurbo('Olimpia');
+  assert.equal(spoken.length, 1);
+  assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().queue.map(item => [item.id, item.priority, item.role]))),
+    [['turbo', -1, 'commentator']]
+  );
+  spoken[0].onend();
+  const next = timers.find(timer => timer.delay === 150);
+  assert.ok(next);
+  next.callback();
+  assert.match(spoken[1].text, /Turbo para el equipo Olimpia/);
 });
 
 test('TikTok events flow through SSE and the voice queue in business-priority order', async () => {
@@ -489,7 +533,11 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
     browser.window.liveEventMonitor.receive({ entry: {
       type: 'chat', displayName: 'Interrupt Fan', username: 'interrupt-fan', content: 'Hola'
     } });
-    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'notifications');
+    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
+    assert.equal(browser.window.getVoiceMonitorState().queue.some(item => item.id === 'chat' && item.role === 'notifications'), true);
+    assert.equal(spoken[4], undefined);
+    spoken[3].onend();
+    await new Promise(resolve => setTimeout(resolve, 275));
     assert.equal(spoken[4]?.voice, notificationVoice);
     spoken[4].onend();
 
@@ -498,7 +546,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
         .slice()
         .sort((a, b) => a.priority - b.priority)
         .map(level => [level.id, level.priority]))),
-      [['gift', 0], ['move', 1], ['chat', 2], ['turbo', 3], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4]]
+      [['turbo', -1], ['gift', 0], ['move', 1], ['chat', 2], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4]]
     );
     const enabled = Object.fromEntries(browser.window.getVoiceMonitorState().levels.map(level => [level.id, level.enabled]));
     assert.equal(enabled.welcome, false);

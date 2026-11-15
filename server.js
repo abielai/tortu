@@ -1387,7 +1387,7 @@ function renderVoice(data){
    const info=voiceInfo[level.id]||[level.id,'Evento de voz configurado.','•'],item=document.createElement('li'),rank=document.createElement('span'),copy=document.createElement('div'),title=document.createElement('b'),desc=document.createElement('p'),phrases=document.createElement('small'),badge=document.createElement('span');
    item.className='voice-card';rank.className='voice-rank';rank.textContent=info[2];copy.className='voice-copy';title.textContent=info[0];desc.textContent=info[1];
    const say=typeof level.say==='string'?[level.say]:Object.entries(level.say||{}).map(([key,value])=>key+': '+value);
-   phrases.textContent=say.join(' · ');badge.className='voice-level';badge.textContent='PRIORIDAD '+String(level.priority).padStart(2,'0')+(level.interrupt?' · INTERRUMPE':'');
+   phrases.textContent=say.join(' · ');badge.className='voice-level';badge.textContent='PRIORIDAD '+String(level.priority).padStart(2,'0');
    const toggle=document.createElement('label'),checkbox=document.createElement('input');
    toggle.className='voice-enabled';checkbox.type='checkbox';checkbox.dataset.voiceLevel=level.id;checkbox.checked=!data.enabledLevels||data.enabledLevels[level.id]!==false;
    checkbox.setAttribute('aria-label',(checkbox.checked?'Desactivar ':'Activar ')+info[0]);toggle.append(checkbox,document.createTextNode('Activo'));
