@@ -301,14 +301,21 @@ test('last donors persist by team, render without gift details, and survive race
   const honorAvatar = honorBoxes[0].children.find(child => child.className === 'dh-av');
   assert.equal(honorAvatar.children[0].src, 'https://example.test/ana.jpg');
   const thanks = honorBoxes[0].children.find(child => child.className === 'dh-tx').children[0];
-  assert.equal(thanks.textContent, 'Gracias @ana');
-  assert.deepEqual(context.giftAttributions, [{
-    url: '/api/honor/team-gifts',
-    options: { eventId: 'gift-ana-1', teamId: 'ol' }
-  }]);
+  assert.equal(thanks.textContent, '@ana');
+  context.handleLiveEntry({
+    type: 'gift', eventId: 'gift-beto-1', username: 'beto', displayName: 'Beto',
+    giftName: 'Rosa', giftDiamonds: 1, activityCount: 1, receivedAt: '2025-01-01T00:00:01.000Z'
+  });
+  const noAvatarBox = honorBoxes[0];
+  assert.equal(noAvatarBox.children.find(child => child.className === 'dh-av').textContent, 'B');
+  assert.equal(noAvatarBox.children.find(child => child.className === 'dh-tx').children[0].textContent, 'Gracias @beto');
+  assert.deepEqual(context.giftAttributions, [
+    { url: '/api/honor/team-gifts', options: { eventId: 'gift-ana-1', teamId: 'ol' } },
+    { url: '/api/honor/team-gifts', options: { eventId: 'gift-beto-1', teamId: 'ol' } }
+  ]);
   assert.doesNotMatch(markers[0].children.map(child => child.textContent).join(' '), /Rosa|🎁/);
   context.reset();
-  assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
+  assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'beto');
 });
 
 test('voice does not narrate race progress or milestones', () => {
@@ -2096,6 +2103,7 @@ test('overlay keeps its race design and opens monitor tabs matching the backend 
   }
   assert.doesNotMatch(html, /data-tab="narrador"/);
   assert.match(html, /data-tab="usuarios"[^>]*>👤 Usuarios<\/button><button data-tab="voz"[^>]*>♫ Voz/);
+  assert.match(html, /<div class="foot footer-hidden">/);
   assert.match(html, /<button class="live connecting" id="connection" type="button"[^>]*aria-haspopup="true"[^>]*aria-controls="footerMenu"/);
   const footerMenu = html.match(/<div class="foot-menu" id="footerMenu"[\s\S]*?<\/div>/)?.[0];
   assert.ok(footerMenu);
@@ -2109,6 +2117,53 @@ test('overlay keeps its race design and opens monitor tabs matching the backend 
   assert.match(html, /fetch\('\/api\/connect\/next',\{method:'POST',headers:\{'X-Overlay-Control':'switch-user'\}\}\)/);
   assert.match(server, /path === '\/api\/connect\/next' && req\.method === 'POST'/);
   assert.match(html, /addEventListener\('motor-state'/);
+});
+
+test('footer tools open on tap and hide automatically after eight seconds', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const script = html.match(/<script id="footer-menu-js">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  const triggerHandlers = {};
+  const triggerAttributes = {};
+  const menuHandlers = {};
+  const documentHandlers = {};
+  const classes = new Set(['footer-hidden']);
+  const trigger = {
+    addEventListener(type, handler) { triggerHandlers[type] = handler; },
+    setAttribute(name, value) { triggerAttributes[name] = value; }
+  };
+  const menu = {
+    hidden: true,
+    addEventListener(type, handler) { menuHandlers[type] = handler; }
+  };
+  const foot = {
+    classList: {
+      toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+      contains(name) { return classes.has(name); }
+    },
+    contains(target) { return target === trigger || target === menu; }
+  };
+  const document = {
+    getElementById: id => id === 'connection' ? trigger : id === 'footerMenu' ? menu : null,
+    querySelector: selector => selector === '.foot' ? foot : null,
+    addEventListener(type, handler) { documentHandlers[type] = handler; }
+  };
+  const timers = [];
+  runInNewContext(script, {
+    document,
+    setTimeout(callback, delay) { timers.push({ callback, delay }); return timers.length; },
+    clearTimeout() {}
+  });
+
+  triggerHandlers.click();
+  assert.equal(menu.hidden, false);
+  assert.equal(classes.has('footer-hidden'), false);
+  assert.equal(triggerAttributes['aria-expanded'], 'true');
+  assert.equal(timers[0].delay, 8000);
+  timers[0].callback();
+  assert.equal(menu.hidden, true);
+  assert.equal(classes.has('footer-hidden'), true);
+  assert.equal(triggerAttributes['aria-expanded'], 'false');
 });
 
 test('overlay displays package.json version and uses it in deployment signature', async () => {

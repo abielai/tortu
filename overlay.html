@@ -888,7 +888,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
 <div class="win" id="win" role="alertdialog" aria-label="Ganador"></div>
 </section>
 <!-- El botón de usuario abre el grupo de herramientas del pie. -->
-<div class="foot"><button class="live connecting" id="connection" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="footerMenu" aria-label="Conectando; abrir herramientas" aria-live="polite">conectando</button><div class="foot-menu" id="footerMenu" role="group" aria-label="Herramientas del overlay" hidden><button class="live" id="switchUser" type="button" aria-label="Cambiar al siguiente usuario">👤 Cambiar usuario</button><button class="sm" id="voiceToggle" type="button" aria-pressed="false" aria-label="Desactivar voz" title="Desactivar voz">🔊</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps en 10" title="10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps en 10" title="10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Abrir monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Abrir herramientas del backend">⚙️</button></div></div>
+<div class="foot footer-hidden"><button class="live connecting" id="connection" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="footerMenu" aria-label="Conectando; tocar para mostrar herramientas" aria-live="polite">conectando</button><div class="foot-menu" id="footerMenu" role="group" aria-label="Herramientas del overlay" hidden><button class="live" id="switchUser" type="button" aria-label="Cambiar al siguiente usuario">👤 Cambiar usuario</button><button class="sm" id="voiceToggle" type="button" aria-pressed="false" aria-label="Desactivar voz" title="Desactivar voz">🔊</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps en 10" title="10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps en 10" title="10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Abrir monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Abrir herramientas del backend">⚙️</button></div></div>
 <!-- FRANJA DE ESTADISTICAS del live: solo eventos REALES (los bots y los toques manuales no cuentan). -->
 <div class="evs" id="evs" role="status" aria-label="Estadisticas del live"><div class="st" data-k="member" title="Unidos"><b>👥</b><span>0</span></div><div class="st" data-k="chat" title="Comentarios"><b>💬</b><span>0</span></div><div class="st" data-k="like" title="Me gusta"><b>❤️</b><span>0</span></div><div class="st" data-k="follow" title="Seguidores nuevos"><b>➕</b><span>0</span></div><div class="st" data-k="share" title="Compartidos"><b>↗️</b><span>0</span></div></div>
 <button id="giftCounter" class="gift-total st" data-k="gift" type="button" aria-label="Regalos mostrados en esta sesión: 0" title="Regalos mostrados en esta sesión: 0"><span id="giftCount">0</span></button>
@@ -5185,6 +5185,9 @@ window.gamiTaps={state:st};
  background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
 .side>.foot>.live{grid-column:1/-1;box-sizing:border-box;width:100%!important;min-width:0!important;max-width:none!important;min-height:20px!important;height:20px;padding:0 4px!important;font-size:10px!important;justify-content:center!important;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .side>.foot>.live:after{content:"⌄";margin-left:5px}
+.side>.foot.footer-hidden{padding:0!important;background:#000;border-color:#000;box-shadow:none}
+.side>.foot.footer-hidden>.live{box-sizing:border-box;min-height:36px!important;height:36px!important;padding:0!important;border:0!important;border-radius:4px!important;background:#000!important;color:transparent!important;box-shadow:none!important}
+.side>.foot.footer-hidden>.live:after{content:none}
 .side>.foot>.foot-menu{position:absolute;left:0;right:0;bottom:calc(100% + 6px);z-index:30;box-sizing:border-box;padding:5px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;background:linear-gradient(#7a4e2a,#5a3a1e);border:2px solid #3f2713;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.65)}
 .side>.foot>.foot-menu[hidden]{display:none!important}
 .side>.foot>.foot-menu>.live{grid-column:1/-1;box-sizing:border-box;min-width:0;height:24px;padding:0 4px;font-size:10px;justify-content:center}
@@ -5210,7 +5213,12 @@ window.gamiTaps={state:st};
 (function(){
  const trigger=document.getElementById('connection'),menu=document.getElementById('footerMenu'),foot=document.querySelector('.foot');
  if(!trigger||!menu||!foot)return;
- const setOpen=open=>{menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open))};
+ let hideTimer=0;
+ const setOpen=open=>{
+  clearTimeout(hideTimer);menu.hidden=!open;trigger.setAttribute('aria-expanded',String(open));
+  foot.classList.toggle('footer-hidden',!open);
+  if(open)hideTimer=setTimeout(()=>setOpen(false),8000);
+ };
  trigger.addEventListener('click',()=>setOpen(menu.hidden));
  menu.addEventListener('click',event=>{if(event.target.closest('button'))setOpen(false)});
  document.addEventListener('click',event=>{if(!foot.contains(event.target))setOpen(false)});
@@ -6107,9 +6115,10 @@ schedule();
   if(!record){box.classList.add('empty');return}
   box.classList.remove('empty');
   const av=document.createElement('span');av.className='dh-av';
+  const hasAvatar=!!recordAvatar(record);
   showAvatar(av,record,true);
   const txt=document.createElement('span');txt.className='dh-tx';
-  const un=document.createElement('b');un.className='dh-un';un.textContent='Gracias @'+String(record.username||'').replace(/^@+/,'');
+  const un=document.createElement('b');un.className='dh-un';un.textContent=(hasAvatar?'':'Gracias ')+'@'+String(record.username||'').replace(/^@+/,'');
   const gf=document.createElement('i');gf.className='dh-gift';gf.textContent='';
   txt.append(un,gf);box.append(av,txt);
   box.title='Honor · '+(team&&team.n||team&&team.id)+': @'+String(record.username||'');
