@@ -681,9 +681,8 @@ body{margin:0;background:var(--page);font-family:Inter,system-ui,sans-serif;colo
 /* huevos vacios: blancos */
 .ua.blank{background:#f6f1e6!important;border-color:#e3d9c4!important;box-shadow:inset 0 -3px 4px rgba(0,0,0,.12)}
 
-/* contador de me gusta: pildora limpia con el numero DENTRO de la barra y el corazon montado a la izquierda */
+/* contador de me gusta: medidor limpio con el numero DENTRO de la barra */
 .hb{position:relative;gap:0;padding:0;background:none;border-radius:0}
-.hb .hi{position:absolute;top:50%}
 .hb i{position:relative;flex:1;height:18px;border:2px solid rgba(255,255,255,.85);border-radius:9px;background:rgba(20,10,4,.55);box-shadow:0 1px 3px rgba(0,0,0,.5)}
 .hb i b{position:absolute;left:0;top:0;z-index:1}
 .hb{cursor:default}
@@ -1325,7 +1324,7 @@ function laneSVG(i,t){
 <path id="cw${i}" display="none" d="M36 410 L38 394 L44 401 L50 390 L56 401 L62 394 L64 410Z" fill="url(#go${i})" stroke="#8a6410" stroke-width="1.5"/>
 </g><text id="clubName${i}" x="50" y="552" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".7" paint-order="stroke">${t.n}</text></g></g><path d="M0 8Q0 0 8 0H8V630H8Q0 630 0 622Z M112 0H112Q120 0 120 8V622Q120 630 112 630H112Z" fill="#b07a45"/><path d="M8 10V620 M112 10V620" stroke="#0d0602" stroke-width="2.6" opacity=".95"/><path d="M2.5 12V618 M117.5 12V618" stroke="#e3b87d" stroke-width="1" opacity=".55"/><path d="M0 535H80" stroke="#000" stroke-width="0"/><rect x="1" y="1" width="118" height="628" rx="8" fill="none" stroke="#3f2713" stroke-width="2"/></svg>`;
 }
-$('#lanes').innerHTML=T.map((t,i)=>`<div class="lane" id="ln${i}"><button class="hd" data-i="${i}" aria-pressed="false" aria-label="${t.n}"><svg class="fgb" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${flag(t.id,0,0,20,14)}</svg><span class="pod"></span><svg class="crown" width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 14 L3 3 L7 8 L10 1 L13 8 L17 3 L18 14Z" fill="#ffd34d" stroke="#8a6410" stroke-width="1.2"/></svg></button><div class="hb" id="hb${i}" role="progressbar" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0" aria-label="Contador tap tap de ${t.n}; solo eventos reales suman taps; cada 500 activa el turbo" title="Solo los eventos reales de TikTok suman taps; al llegar a 500 se activa el turbo"><span class="hi">❤️</span><i><b></b></i><em>0</em></div><div class="sv" id="sv${i}">${laneSVG(i,t)}</div><div class="team-total" id="teamTotal${i}" title="Interacciones totales de ${t.n}"><span>EVENTOS</span><b>0</b></div></div>`).join('');
+$('#lanes').innerHTML=T.map((t,i)=>`<div class="lane" id="ln${i}"><button class="hd" data-i="${i}" aria-pressed="false" aria-label="${t.n}"><svg class="fgb" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${flag(t.id,0,0,20,14)}</svg><span class="pod"></span><svg class="crown" width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 14 L3 3 L7 8 L10 1 L13 8 L17 3 L18 14Z" fill="#ffd34d" stroke="#8a6410" stroke-width="1.2"/></svg></button><div class="hb" id="hb${i}" role="progressbar" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0" aria-label="Contador tap tap de ${t.n}; solo eventos reales suman taps; cada 500 activa el turbo" title="Solo los eventos reales de TikTok suman taps; al llegar a 500 se activa el turbo"><i><b></b></i><em>0</em></div><div class="sv" id="sv${i}">${laneSVG(i,t)}</div><div class="team-total" id="teamTotal${i}" title="Interacciones totales de ${t.n}"><span>EVENTOS</span><b>0</b></div></div>`).join('');
 T.forEach((team,i)=>{const header=document.querySelector('#ln'+i+' .hd'),name=document.createElement('span');name.className='cn';name.textContent=team.n;header.insertBefore(name,header.querySelector('.pod'))});
 /* Ajusta el ancho de las tortugas (--kx) para que no se deformen al cambiar el tamano del carril */
 function fitK(){document.querySelectorAll('.sv').forEach(v=>{const w=v.offsetWidth,h=v.offsetHeight;if(w&&h)v.querySelectorAll('.in').forEach(g=>g.style.setProperty('--kx',(h/588*120/w).toFixed(3)))})}
@@ -4301,13 +4300,11 @@ reset=function(){tierDone=-1;tierAt=0;ev.length=0;hot.classList.remove('on');ret
 })();
 </script>
 
-<!-- ===== CORAZON DEL LIMITE DE TAPS: mas grande, sin animacion. ===== -->
-<style id="corazon-late">
+<!-- ===== MEDIDOR DE TAPS: solo barra y contador. ===== -->
+<style id="tap-meter-layout">
 .hb{height:24px!important}
-.hb .hi{left:-4px!important;margin-top:-13px!important;font-size:26px!important;line-height:26px!important;z-index:4;transform-origin:50% 55%;
- filter:drop-shadow(0 0 6px rgba(255,45,85,.9)) drop-shadow(0 2px 2px rgba(0,0,0,.8))}
-.hb i{margin-left:18px!important}
-.hb em{left:26px!important}
+.hb i{margin-left:0!important}
+.hb em{left:2px!important}
 @keyframes gmGift{0%{transform:scale(1);animation-timing-function:ease-out}8%{transform:scale(1.3);animation-timing-function:linear}30%{transform:scale(1.3);animation-timing-function:ease-in-out}50%,100%{transform:scale(1)}}
 
 .hb.bump i{box-shadow:0 0 8px 2px rgba(255,90,130,.95)}

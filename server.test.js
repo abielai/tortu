@@ -2004,6 +2004,7 @@ test('overlay displays package.json version and uses it in deployment signature'
 
 test('gift counter emulates a rose locally and HonorBoard receives live catalog settings', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(html, /<span class="hi">❤️<\/span>/);
   assert.doesNotMatch(html, /@keyframes\s+(?:gmHeart|hbp)\b/);
   assert.doesNotMatch(html, /\.hb(?:\.bump|\.full)?\s+\.hi\s*\{[^}]*animation/s);
   assert.match(html, /counter\.addEventListener\('click',\(\)=>HB\.onGift/);
