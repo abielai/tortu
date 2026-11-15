@@ -14,18 +14,10 @@ export default {
       priority: 0,
       ttlMs: 0,
       max: 0,
-      say: 'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'
+      say: 'Gracias {user} por enviar {count} {gift}.'
     },
     { id: 'chat', priority: 2, ttlMs: 20000, max: 3, maxChars: 140, say: '{user} dice: {text}' },
     { id: 'welcome', priority: 3, ttlMs: 25000, max: 6, say: 'Bienvenido {user}' },
-    { id: 'turbo', priority: -1, ttlMs: 12000, max: 1, say: '¡Turbo para el equipo {team}!' },
-    {
-      id: 'featured',
-      priority: 3,
-      ttlMs: 30000,
-      max: 1,
-      say: 'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'
-    },
     {
       id: 'action',
       priority: 3,
@@ -43,14 +35,7 @@ export default {
       priority: 4,
       ttlMs: 8000,
       max: 1,
-      everyMs: 14000,
-      quietMs: 3500,
-      say: {
-        start: 'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',
-        normal: '{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',
-        final: '¡{lead} está a {left} metros de la meta!',
-        win: '¡Gana {lead}! Llegó a los {track} metros.'
-      }
+      say: { start: 'Se enfrentan {teamA} y {teamB}.' }
     }
   ]
 };

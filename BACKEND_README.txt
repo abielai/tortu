@@ -57,7 +57,7 @@
     Si no coinciden, el frontend borra la cache del overlay y recarga UNA vez con ?_cluss_deploy=<firma>; si sigue distinta no insiste (queda un error en consola).
     Si el marcador no se reemplaza o el formato no es valido, el frontend no puede verificar la version (solo avisa en consola).
   GAME-TOOLS SSE (GET /api/game-tools/events), eventos con data JSON:
-    game-settings  {giftTurboProgress, tapTurboProgress}   porcentajes 0-100 del turbo por regalo y por taps (predeterminados 6 y 20).
+    game-settings  {giftTurboProgress, tapTurboProgress}   porcentajes 0-100 del avance por regalo y por cada limite de taps (predeterminados 6 y 20).
     game-tools     {timerStartedAt}                        entero en ms: instante de inicio del cronometro del overlay.
     game-command   {command}                               valores que el frontend entiende: 'refresh' (recarga la pagina), 'turbo-down', 'turbo-up'. El servidor solo debe enviar los de su lista permitida.
   HEARTBEAT (POST /api/game-tools/overlay-heartbeat): cada 20 s, al cambiar la visibilidad de la pestana y al cerrar (visible:false, keepalive). clientId = UUID generado por el overlay. Activo = senal visible en los ultimos 90 s.
@@ -75,7 +75,7 @@
   F7  DEDUPLICAR por IDs de origen recientes (no enviar dos veces el mismo evento).
   F8  COMBOS DE REGALOS: calcular el delta de cada combo para no contar repetidos. Conservar tal cual los activityCount de regalos y likes.
   F9  GET /api/events (SSE): 'event: status' {connected,status} en cada cambio de conexion y 'event: update' {entry} por cada evento real.
-  F10 CONFIG DE TURBO: guardar y entregar los porcentajes (0 a 100). Predeterminados: regalo 6 %, taps 20 %.
+  F10 CONFIG DE AVANCE/TURBO: guardar y entregar los porcentajes (0 a 100). Predeterminados: regalo 6 %, taps 20 %.
   F11 ESTADO DEL JUEGO: guardar los documentos de estado del overlay (juego, cuadro del torneo, votos) y servir la carga inicial de documentos pequenos (GET /api/state.js). NO calcular el cuadro ni resultados.
   F12 TORNEO LIBRE (API separada): registrar votos de comentarios mientras estaba habilitado, aceptar nombres libres de equipos y contar usuarios unicos con huellas hash (sin guardar el nombre).
   F13 COPAS: registrar la copa que comunica el frontend SOLO si el codigo de pais es valido.
@@ -114,8 +114,8 @@
    - Backend: conserva tal cual los conteos de actividad (activityCount) que llegan del conector para regalos y likes.
    - Frontend: pesos por evento = ingreso (member) 1, comentario 10, like 1 por cada like, seguir 3, compartir 5. Los REGALOS NO suman taps: avanzan la pista directamente. Los comentarios repetidos del mismo usuario se limitan a uno cada 8 s. (OJO: los valores de las estadisticas por VS de la regla 18 son otra cosa: miembro 1, comentario 5, like 1, seguir 3, compartir 3, regalo 10.)
   AVANCE Y TURBO
-   - Backend: guarda los avances configurables del turbo; acepta valores entre 0 y 100 %. Predeterminados en codigo: turbo por regalo 6 %, turbo por taps 20 %.
-   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps empieza en 50 y sube 10 por cada 10 % de avance maximo de la pista (50 a 140). Al completarlo activa turbo 7 s; su porcentaje se configura desde el backend.
+   - Backend: guarda los avances configurables; acepta valores entre 0 y 100 %. Predeterminados en codigo: regalo 6 %, cada limite de taps 20 %.
+   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps permanece fijo en 45 por equipo y al completarlo avanza directamente el porcentaje configurado, sin activar turbo.
   ASIGNACION AL EQUIPO
    - Backend: NO decide puntajes ni ganador.
    - Frontend: los eventos de una persona van a su equipo elegido/asignado; los eventos anonimos (sin username) usan el carril seleccionado. Un regalo toma el equipo que el usuario nombro en el chat en los ultimos 60 s, si lo hay (si no, el que tiene asignado).
@@ -216,19 +216,10 @@
  =================================================================================================================== 
 
 ========================================================================================================
- PARTE 6 - VOZ EN OFF (tabla de prioridad)
+ PARTE 6 - VOZ EN COLA
 ========================================================================================================
- El frontend habla por una cola de prioridad (capa voz-prioridad-js, al final del HTML). La tabla puede venir del backend: GET /api/voice-priority.
-  Forma:  {"trackMeters":100,"levels":[{id,priority,ttlMs,max,interrupt?,say,coalesceMs?,everyMs?,quietMs?,maxChars?}, ...]}   (menor priority = habla primero)
-  Niveles por defecto del frontend:
-   gift     priority 0  MAXIMA. Agradece cada regalo y dispara una alerta alegre desde 1 diamante; no expira ni descarta regalos.
-   move     priority 1  Hincha que nombra un club o cambia de equipo. ttl 20 s, max 8 en cola.
-   chat     priority 2  leer comentario. ttl 20 s, max 3, maxChars 140.
-   welcome  priority 3  saludo al hincha que ingresa (evento member). ttl 25 s, max 6. Una vez por usuario; de nuevo si reingresa pasados 10 min.
-   action   priority 3  likes (se agrupan 8 s), seguir, compartir. ttl 12 s, max 3.
-   match    priority 4  como va el partido, en METROS (meta = trackMeters = 100). Cada 14 s si hay silencio.
-  Si el backend devuelve una tabla sin 'move' o sin 'welcome', el frontend agrega los suyos por defecto. Si el endpoint falla, usa la tabla por defecto.
-  El backend NO habla ni decide que se dice: solo entrega la tabla.
+ El frontend reproduce una sola frase a la vez: comentarios e interacciones reales de usuarios, más un anuncio inicial de los equipos enfrentados. No narra el progreso, los turbos ni los logros. El botón del overlay habilita o silencia todas las voces.
+ La tabla del backend (GET /api/voice-priority) contiene las plantillas y prioridades de cola. El backend NO habla ni decide qué se dice.
 
 ========================================================================================================
  PARTE 7 - PENDIENTES POR CONFIRMAR

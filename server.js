@@ -847,22 +847,12 @@ async function loadGiftConfig() {
 
 function voiceConfigView(value) {
   const minutes = Number(value?.repeatCooldownMinutes);
-  const storedLevels = value?.enabledLevels && typeof value.enabledLevels === 'object' && !Array.isArray(value.enabledLevels)
-    ? value.enabledLevels
-    : {};
   return {
     repeatCooldownMinutes: Number.isInteger(minutes) && minutes >= 1 && minutes <= 1440
       ? minutes
       : voicePriority.repeatCooldownMinutes,
     donTortuEnabled: value?.donTortuEnabled !== false,
-    enabledLevels: Object.fromEntries(voicePriority.levels.map(level => [
-      level.id,
-      ['welcome', 'action'].includes(level.id)
-        ? false
-        : typeof storedLevels[level.id] === 'boolean'
-        ? storedLevels[level.id]
-        : true
-    ]))
+    enabledLevels: Object.fromEntries(voicePriority.levels.map(level => [level.id, true]))
   };
 }
 
@@ -1312,23 +1302,22 @@ input,select{border:1px solid #31435a;background:#0a1220;color:var(--text);paddi
 <body><div class="shell">
 <header class="topbar"><a class="brand" href="/backend"><span class="brandmark">NG</span><span><b>NEGOCIO</b><small>GAME SERVER · CONTROL ROOM</small></span></a><div class="topmeta"><span class="live-tag"><i class="dot"></i> LIVE OPS</span><span id="clock">--:--:--</span></div></header>
 <main>
-<section class="hero"><div><span class="eyebrow">Game operations / servidor 01</span><h1>Controla la partida.<br><em>Domina el live.</em></h1><p>Centro de mando organizado por unidades de negocio de TortuWorld.</p><div class="hero-actions"><a href="/">Abrir overlay ↗</a><button class="primary" id="voiceToggle">♫ Voz en off</button></div></div></section>
+<section class="hero"><div><span class="eyebrow">Game operations / servidor 01</span><h1>Controla la partida.<br><em>Domina el live.</em></h1><p>Centro de mando organizado por unidades de negocio de TortuWorld.</p><div class="hero-actions"><a href="/">Abrir overlay ↗</a></div></div></section>
 <section class="stats"><article class="stat"><span class="stat-label">Eventos recibidos</span><strong id="eventCount">0</strong><small>En esta sesión</small></article><article class="stat"><span class="stat-label">Regalos recibidos</span><strong id="giftCount">0</strong><small>Contador del servidor</small></article><article class="stat"><span class="stat-label">Overlay</span><strong id="overlayState">Verificando</strong><small id="overlayClients">Buscando clientes activos</small></article></section>
 <nav class="unit-nav" id="businessUnits" aria-label="Unidades de negocio">
-<button type="button" class="active" data-unit="usuarios">Usuarios</button><button type="button" data-unit="voz">Voz en off</button><button type="button" data-unit="honor">Honor</button><button type="button" data-unit="eventos">Eventos</button><button type="button" data-unit="regalos">Regalos</button><button type="button" data-unit="torneos">Torneos</button><button type="button" data-unit="estadisticas">Estadísticas</button><button type="button" data-unit="motor">Motor tiempo real</button><button type="button" data-unit="turbo-regalos">Turbo regalos</button><button type="button" data-unit="acciones">CTAs / Acciones</button><button type="button" data-unit="logs">Logs</button>
+<button type="button" class="active" data-unit="usuarios">Usuarios</button><button type="button" data-unit="honor">Honor</button><button type="button" data-unit="eventos">Eventos</button><button type="button" data-unit="regalos">Regalos</button><button type="button" data-unit="torneos">Torneos</button><button type="button" data-unit="estadisticas">Estadísticas</button><button type="button" data-unit="motor">Motor tiempo real</button><button type="button" data-unit="turbo-regalos">Turbo regalos</button><button type="button" data-unit="acciones">CTAs / Acciones</button><button type="button" data-unit="logs">Logs</button>
 </nav>
-<section class="panel business-panel" data-units="usuarios"><header><h2><span class="icon">👤</span> Usuarios</h2><span class="pill">LIVE</span></header><div class="form-row"><button type="button" id="donTortuToggle" class="don-tortu-toggle off" aria-pressed="false" aria-label="Don Tortu desactivado" disabled>Don Tortu: DESACTIVADO</button><span class="subtle">Verde: avatar y voz activos · Rojo: desactivados y ocultos del overlay.</span></div><p class="message" id="donTortuMessage" role="status"></p><pre class="pre" id="recentUsers">Cargando usuarios…</pre><article class="connection-card user-connection"><header><h2>Conexión TikTok</h2><span class="status-pill" id="status">CONECTANDO</span></header><p class="subtle">Usuario actual: <b id="currentUsername">Sin usuario</b></p><p class="subtle" id="statusDetail">Esperando estado del servidor…</p><form id="connect" class="form-row"><label class="field">Usuarios guardados<select id="savedUsername"><option value="">Cargando usuarios guardados…</option></select></label><label class="field">Usuario del live<input name="username" placeholder="Ingresa el usuario sin @" required></label><button class="primary">Conectar</button><button type="button" id="reconnect">Reintentar</button></form><p class="message" id="savedUsernameMessage" role="status"></p></article></section>
+<section class="panel business-panel" data-units="usuarios"><header><h2><span class="icon">👤</span> Usuarios</h2><span class="pill">LIVE</span></header><pre class="pre" id="recentUsers">Cargando usuarios…</pre><article class="connection-card user-connection"><header><h2>Conexión TikTok</h2><span class="status-pill" id="status">CONECTANDO</span></header><p class="subtle">Usuario actual: <b id="currentUsername">Sin usuario</b></p><p class="subtle" id="statusDetail">Esperando estado del servidor…</p><form id="connect" class="form-row"><label class="field">Usuarios guardados<select id="savedUsername"><option value="">Cargando usuarios guardados…</option></select></label><label class="field">Usuario del live<input name="username" placeholder="Ingresa el usuario sin @" required></label><button class="primary">Conectar</button><button type="button" id="reconnect">Reintentar</button></form><p class="message" id="savedUsernameMessage" role="status"></p></article></section>
 <section class="panel business-panel" data-units="honor"><header><h2><span class="icon">🥇</span> Negocio Honor · Cuadro de honor</h2><span class="pill">HONOR</span></header><article class="connection-card"><header><h2>Último usuario que envió un regalo</h2></header><div class="form-row"><img id="honorLastGiftAvatar" alt="" width="56" height="56" hidden><pre class="pre" id="honorLastGift">Cargando último regalo…</pre></div></article><article class="connection-card"><header><h2>Últimos donadores por equipo</h2></header><p class="subtle">El último usuario que donó a cada equipo se conserva entre carreras.</p><div class="toolbar"><button type="button" id="copyLeftDonor">Copiar equipo izquierdo</button><button type="button" id="copyRightDonor">Copiar equipo derecho</button><button type="button" id="copyTeamDonors">Copiar ambos equipos</button></div><p class="message" id="donorCopyMessage" role="status"></p><pre class="pre" id="teamDonors">Cargando donadores…</pre></article><pre class="pre" id="honorBoard">Cargando resultados guardados…</pre></section>
 <section class="panel business-panel" data-units="eventos"><header><h2><span class="icon">⚡</span> Eventos LIVE</h2><span class="pill">ÚLTIMOS 50</span></header><p class="subtle">Eventos recibidos en esta sesión: <b id="eventUnitCount">0</b>. Los más recientes aparecen primero.</p><div class="event-layout"><div><div class="event-toolbar"><button type="button" id="copyEvents">Copiar eventos visibles</button><button type="button" id="clearEvents">Limpiar eventos</button></div><p class="message" id="eventMessage" role="status"></p><p class="unit-empty" id="eventEmpty">Esperando eventos de TikTok…</p><ol class="event-list" id="eventList" aria-live="polite"></ol></div><aside class="event-filters" aria-label="Filtrar eventos"><h3>Mostrar eventos</h3><form id="eventFilterForm"><label class="event-filter"><input type="checkbox" data-event-filter="all" checked> Todos</label><label class="event-filter"><input type="checkbox" data-event-filter="member" checked> Se unieron</label><label class="event-filter"><input type="checkbox" data-event-filter="chat" checked> Comentarios</label><label class="event-filter"><input type="checkbox" data-event-filter="like" checked> Me gusta / taps</label><label class="event-filter"><input type="checkbox" data-event-filter="follow" checked> Seguidores</label><label class="event-filter"><input type="checkbox" data-event-filter="share" checked> Compartidos</label><label class="event-filter"><input type="checkbox" data-event-filter="gift" checked> Regalos</label><button type="submit" class="primary" id="applyEventFilters" style="width:100%;margin-top:8px">Aplicar filtros</button></form></aside></div><pre class="pre" id="tools" hidden></pre></section>
 <section class="panel business-panel" data-units="logs" id="logsPanel"><header><h2><span class="icon">📜</span> Logs técnicos</h2><span class="pill" id="logsCount">SESIÓN ACTUAL</span></header><p class="subtle">Avisos y errores recientes del servidor. El diagnóstico detallado se activa durante 10 minutos en los overlays conectados.</p><div class="toolbar"><button id="toggleAllLogs" type="button" aria-pressed="false">Activar logs en todos los negocios (10 min)</button><button id="copyTechnicalLogs" type="button">Copiar logs</button><button id="refreshLogs" type="button">Actualizar</button></div><p class="message" id="logsMessage" role="status"></p><p class="unit-empty" id="logsEmpty">Sin registros técnicos todavía.</p><ol class="event-list" id="serverLogs" aria-live="polite"></ol><p class="message" id="logsError" role="status"></p></section>
 <section class="panel business-panel" data-units="regalos turbo-regalos"><header><h2><span class="icon">🎁</span> Negocio de regalos</h2><span class="pill">CATÁLOGO Y ROTACIÓN</span></header><p class="subtle">Total recibidos: <b id="giftUnitCount">0</b></p><p class="subtle">Turbo por unidad: 10 m de base + 5 m por cada diamante. Se recorre durante 15 segundos; un regalo de 1 diamante avanza 15 m.</p><input id="gift" type="hidden" value="6"><h3>Catálogo de regalos · monedas</h3><p class="subtle">Rosita empieza habilitada. El catálogo incluye los regalos y valores en monedas indicados; los regalos no catalogados aparecen con valor sin informar y deshabilitados.</p><div class="form-row"><label class="field">Rotar en el cuadro de honor cada (segundos)<input id="giftRotation" type="number" min="1" max="3600" value="10"></label></div><div id="giftCatalogList" class="gift-catalog-list"><div class="unit-empty">Cargando catálogo…</div></div><div class="toolbar"><button class="primary" id="saveGiftCatalog">Guardar catálogo y rotación</button></div><p class="message" id="giftConfigMessage" role="status"></p></section>
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🚩</span> Torneos · catálogo de equipos</h2><span class="pill">TORNEOS</span></header><p class="subtle">Banderas de los equipos disponibles en los VS configurables.</p><div id="teamCatalogList" class="team-catalog-list"><div class="unit-empty">Cargando banderas…</div></div></section>
-<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🐢</span> Torneos · contador de equipos</h2><span class="pill">TORNEOS</span></header><div class="form-row"><label class="field">Avance del turbo por taps (%)<input id="tap" type="number" min="0" max="100" value="20"></label><button class="primary" id="saveTapTurbo">Guardar ajustes de equipos</button><button data-command="turbo-down">Turbo −</button><button data-command="turbo-up">Turbo +</button></div><div class="motor-grid" id="teamTelemetry"><div class="unit-empty">Esperando valores del motor…</div></div></section>
+<section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🐢</span> Torneos · contador de equipos</h2><span class="pill">TORNEOS</span></header><div class="form-row"><label class="field">Avance por cada límite de taps (%)<input id="tap" type="number" min="0" max="100" value="20"></label><button class="primary" id="saveTapTurbo">Guardar ajustes de equipos</button><button data-command="turbo-down">Turbo −</button><button data-command="turbo-up">Turbo +</button></div><div class="motor-grid" id="teamTelemetry"><div class="unit-empty">Esperando valores del motor…</div></div></section>
 <section class="panel business-panel" data-units="motor"><header><h2><span class="icon">⚙</span> Motor en tiempo real</h2><span class="pill" id="motorStatus">SIN TELEMETRÍA</span></header><p class="subtle">Valores actuales reportados por el overlay y retransmitidos por el servidor.</p><div class="stats"><article class="stat"><span class="stat-label">Fase</span><strong id="motorPhase">—</strong><small id="motorUpdated">Esperando al overlay</small></article><article class="stat"><span class="stat-label">Duración</span><strong id="motorElapsed">—</strong><small>Tiempo de carrera</small></article><article class="stat"><span class="stat-label">Inactividad</span><strong id="motorIdle">—</strong><small>Cuenta regresiva</small></article></div><p class="subtle">Ganador: <b id="motorWinner">—</b> · Eventos procesados: <b id="motorEvents">0</b></p><div class="motor-grid" id="motorTeams"><div class="unit-empty">El overlay debe estar abierto para publicar telemetría.</div></div><pre class="pre" id="motorStats">Estadísticas del motor: esperando datos…</pre></section>
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos</h2><span class="pill">VOTACIÓN</span></header><label class="checkrow"><input id="tournamentEnabled" type="checkbox"> Registrar votos de comentarios reales</label><div class="toolbar"><button class="primary" id="saveTournament">Guardar configuración</button></div></section>
 <section class="panel business-panel" data-units="torneos"><header><h2><span class="icon">🏆</span> Torneos · crear lista de carreras</h2><span class="pill">CUATRO DUELOS EN ROTACIÓN</span></header><p class="subtle">Olimpia–Cerro, Barcelona–Real Madrid, Paraguay–Argentina y Paraguay–Brasil se habilitan en la rotación; se alternan al terminar cada carrera por inactividad.</p><div id="vsConfigList" class="vs-config-list"><div class="unit-empty">Cargando VS…</div></div><div class="toolbar"><button class="primary" id="saveVsConfig">Guardar VS y popularidad</button></div><h3>Lista de carreras</h3><div id="raceList" class="race-list"><div class="unit-empty">Cargando lista…</div></div><p class="message" id="vsConfigMessage" role="status"></p></section>
 <section class="panel business-panel" data-units="estadisticas"><header><h2><span class="icon">📊</span> Estadísticas por país y presencia</h2><span class="pill">LIVE DATA</span></header><pre class="pre" id="countries">Esperando datos…</pre><div class="country-box"><span class="subtle">Estado del overlay</span><pre class="pre" id="presence">Verificando clientes…</pre></div></section>
-<section class="panel business-panel" data-units="voz"><header><h2><span class="icon">♫</span> Voz en off · Narrador</h2><span class="pill">PRIORIDADES EN VIVO</span></header><p class="subtle">Voz alegre, con prioridad más baja primero; los regalos interrumpen mensajes de menor prioridad. Activa o desactiva cada tipo de narración.</p><div class="form-row"><label class="field">No repetir una frase durante (minutos)<input id="voiceCooldownMinutes" type="number" min="1" max="1440" step="1" value="1"></label><button class="primary" id="saveVoiceConfig">Guardar ajustes de voz</button></div><p class="voice-hint" id="voicePhraseRule">Las frases pronunciadas se comparan con el diccionario temporal antes de hablar.</p><ol class="voice-order" id="voiceOrder"></ol><p class="voice-hint">🎁 Cada regalo se agradece con una voz alegre. La narración respeta las prioridades activas y se vacía al terminar cada partido.</p><p class="message" id="voiceError" role="status"></p></section>
 <section class="panel business-panel" data-units="acciones"><header><h2><span class="icon">🛠</span> CTAs / Acciones</h2><span class="pill">OPERADOR</span></header><p class="subtle">Herramientas de operación del live y la sesión.</p><div class="toolbar"><button id="reset">Reiniciar cronómetro y regalos</button><button data-command="refresh">Recargar overlay</button><button id="logout">Cerrar sesión protegida</button></div></section>
 <p class="message" id="message" role="status"></p>
 </main><footer class="server-footer"><span>NEGOCIO GAME SERVER</span><span>Control local · datos en tiempo real</span></footer></div>
@@ -1409,7 +1398,6 @@ function showUnit(unit,scrollToPanel=false){
  panels.forEach(panel=>{panel.hidden=!panel.dataset.units.split(/\\s+/).includes(unit)});
  if(scrollToPanel)panels.find(panel=>panel.dataset.units.split(/\\s+/).includes(unit))?.scrollIntoView({behavior:'smooth',block:'start'});
  if(unit==='logs')loadTechnicalLogs();
- if(unit==='voz')loadVoice();
  if(unit==='regalos'||unit==='turbo-regalos')loadGiftConfig();
  if(unit==='torneos'){loadVsConfig();loadTeamCatalog()}
 }
@@ -1419,7 +1407,6 @@ $('#businessUnits').addEventListener('click',event=>{
  event.preventDefault();
  const unit=button.dataset.unit;
  showUnit(unit,true);
- if(unit==='voz')loadVoice();
  if(unit==='honor')loadHonorBoard();
 });
 showUnit('usuarios');
@@ -1454,56 +1441,8 @@ $('#saveVsConfig').onclick=async()=>{
  try{await admin('/api/admin/vs-config',{enabledKeys,popularKeys});await loadVsConfig();$('#vsConfigMessage').textContent='Configuración guardada. La lista se actualiza al terminar cada carrera por inactividad.'}
  catch(error){$('#vsConfigMessage').textContent=error.message}
 };
-$('#saveVoiceConfig').onclick=async()=>{
- const repeatCooldownMinutes=Number($('#voiceCooldownMinutes').value);
- const enabledLevels=Object.fromEntries(Array.from(document.querySelectorAll('#voiceOrder input[data-voice-level]'),input=>[input.dataset.voiceLevel,input.checked]));
- try{
-  const config=await admin('/api/admin/voice-config',{repeatCooldownMinutes,enabledLevels});
-  $('#voiceCooldownMinutes').value=config.repeatCooldownMinutes;
-  document.querySelectorAll('#voiceOrder input[data-voice-level]').forEach(input=>{input.checked=config.enabledLevels[input.dataset.voiceLevel]!==false});
-  $('#voicePhraseRule').textContent='Las frases no se repiten durante '+config.repeatCooldownMinutes+' minuto'+(config.repeatCooldownMinutes===1?'':'s')+'.';
-  $('#voiceError').textContent='Ajustes de voz guardados.';
- }catch(error){$('#voiceError').textContent=error.message}
-};
 $('#reset').onclick=async()=>{if(!confirm('¿Reiniciar el cronómetro y el contador de regalos?'))return;try{await admin('/api/admin/game-tools/reset');msg('Cronómetro reiniciado')}catch(e){msg(e.message)}};
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{try{await admin('/api/admin/game-command',{command:b.dataset.command});msg('Comando enviado')}catch(e){msg(e.message)}});
-const voiceInfo={gift:['Regalo','Agradece el regalo y activa la alerta alegre desde 1 diamante.','🎁'],move:['Cambio de equipo','Anuncia cuando alguien se une o cambia de equipo.','🔁'],chat:['Comentario','Lee el comentario real del usuario.','💬'],welcome:['Ingreso al live','Da la bienvenida a quien entra.','👋'],action:['Acciones','Agradece likes, seguidores y compartidos.','⚡'],match:['Relato de carrera','Informa posiciones, metros restantes y llegada a la meta.','🏁']};
-function renderVoice(data){
- const order=$('#voiceOrder');if(!order)return;order.replaceChildren();
- data.levels.slice().sort((a,b)=>a.priority-b.priority).forEach(level=>{
-   const info=voiceInfo[level.id]||[level.id,'Evento de voz configurado.','•'],item=document.createElement('li'),rank=document.createElement('span'),copy=document.createElement('div'),title=document.createElement('b'),desc=document.createElement('p'),phrases=document.createElement('small'),badge=document.createElement('span');
-   item.className='voice-card';rank.className='voice-rank';rank.textContent=info[2];copy.className='voice-copy';title.textContent=info[0];desc.textContent=info[1];
-   const say=typeof level.say==='string'?[level.say]:Object.entries(level.say||{}).map(([key,value])=>key+': '+value);
-   phrases.textContent=say.join(' · ');badge.className='voice-level';badge.textContent='PRIORIDAD '+String(level.priority).padStart(2,'0');
-   const toggle=document.createElement('label'),checkbox=document.createElement('input');
-   toggle.className='voice-enabled';checkbox.type='checkbox';checkbox.dataset.voiceLevel=level.id;checkbox.checked=!data.enabledLevels||data.enabledLevels[level.id]!==false;
-   checkbox.setAttribute('aria-label',(checkbox.checked?'Desactivar ':'Activar ')+info[0]);toggle.append(checkbox,document.createTextNode('Activo'));
-   checkbox.addEventListener('change',()=>checkbox.setAttribute('aria-label',(checkbox.checked?'Desactivar ':'Activar ')+info[0]));
-   copy.append(title,desc,phrases);item.append(rank,copy,badge,toggle);order.append(item);
- });
-}
-async function loadVoice(){
- try{const r=await fetch('/api/voice-priority',{cache:'no-store'});if(!r.ok)throw Error('No se pudo cargar el protocolo de voz ('+r.status+').');const data=await r.json();if(!Array.isArray(data.levels))throw Error('La configuración de voz no tiene niveles válidos.');renderVoice(data);renderDonTortuToggle(data.donTortuEnabled===true);$('#voiceCooldownMinutes').value=data.repeatCooldownMinutes;$('#voicePhraseRule').textContent='Las frases no se repiten durante '+data.repeatCooldownMinutes+' minuto'+(data.repeatCooldownMinutes===1?'':'s')+'.';$('#voiceError').textContent='Configuración recibida del servidor · meta a '+data.trackMeters+' m.'}
- catch(e){$('#voiceError').textContent=e.message}
-}
-let donTortuEnabled=false;
-function renderDonTortuToggle(enabled){
- donTortuEnabled=enabled===true;
- const button=$('#donTortuToggle');button.classList.toggle('on',donTortuEnabled);button.classList.toggle('off',!donTortuEnabled);
- button.textContent='Don Tortu: '+(donTortuEnabled?'ACTIVADO':'DESACTIVADO');
- button.setAttribute('aria-pressed',String(donTortuEnabled));button.setAttribute('aria-label','Don Tortu '+(donTortuEnabled?'activado':'desactivado'));button.disabled=false;
-}
-$('#donTortuToggle').onclick=async()=>{
- const button=$('#donTortuToggle');button.disabled=true;
- try{
-  const config=await admin('/api/admin/voice-config',{donTortuEnabled:!donTortuEnabled});
-  renderDonTortuToggle(config.donTortuEnabled);
-  $('#donTortuMessage').textContent=donTortuEnabled?'Don Tortu activado en el overlay.':'Don Tortu desactivado; su avatar desapareció del overlay.';
- }catch(error){$('#donTortuMessage').textContent='No se pudo cambiar Don Tortu: '+error.message}
- finally{button.disabled=false}
-};
-$('#voiceToggle').onclick=()=>{showUnit('voz');loadVoice()};
-loadVoice();
 async function loadHonorBoard(){
  try{
   const [resultsResponse,giftResponse,donorsResponse]=await Promise.all([
@@ -1552,7 +1491,7 @@ function renderMotorTeams(teams,target){
  teams.forEach(team=>{
   const card=document.createElement('article'),title=document.createElement('h3'),meter=document.createElement('div'),fill=document.createElement('i'),values=document.createElement('div');
   card.className='motor-card';title.textContent=team.name;meter.className='meter';fill.style.width=Math.max(0,Math.min(100,team.progress))+'%';meter.append(fill);values.className='motor-values';
-  [['Avance',team.progress.toFixed(1)+'%'],['Taps',Math.floor(team.taps)+' / '+team.tapLimit],['Eventos',Math.floor(team.eventTotal)],['Turbo taps',Math.ceil(team.turboMs/1000)+' s'],['Turbo regalos',Math.ceil(team.giftTurboMs/1000)+' s']].forEach(([label,value])=>{const cell=document.createElement('span');cell.textContent=label+': ';const strong=document.createElement('b');strong.textContent=value;cell.append(strong);values.append(cell)});
+  [['Avance',team.progress.toFixed(1)+'%'],['Taps',Math.floor(team.taps)+' / '+team.tapLimit],['Eventos',Math.floor(team.eventTotal)],['Turbo inactividad',Math.ceil(team.turboMs/1000)+' s'],['Turbo regalos',Math.ceil(team.giftTurboMs/1000)+' s']].forEach(([label,value])=>{const cell=document.createElement('span');cell.textContent=label+': ';const strong=document.createElement('b');strong.textContent=value;cell.append(strong);values.append(cell)});
   card.append(title,meter,values);target.append(card);
  });
 }

@@ -42,7 +42,7 @@
  E) LO UNICO PERMITIDO:
     - INFORMAR o REACCIONAR a eventos REALES ya ocurridos (alguien se unio, comento, dio like, siguio,
       compartio o envio un regalo), con agradecimiento neutro y sin pedir ni prometer nada.
-    - Mostrar el estado de la pista (metros, posicion, turbo por taps) sin vincularlo a regalos.
+    - Mostrar el estado de la pista (metros, posicion y avance por taps) sin vincularlo a regalos.
     - Sonidos y efectos (incluido 8 bit arcade) SOLO como reaccion a un evento real, nunca como estimulo
       para provocar una accion futura.
 
@@ -125,7 +125,7 @@
     Se comprueba al cargar y antes de cada carrera. Si no coinciden, el frontend pausa la carrera, borra la cache y recarga UNA vez con ?_cluss_deploy=<firma>; si sigue distinta no insiste.
     Si el marcador no se reemplaza o el formato no es valido, el frontend no puede verificar la version (solo avisa en consola).
   GAME-TOOLS SSE (GET /api/game-tools/events), eventos con data JSON:
-    game-settings  {giftTurboProgress, tapTurboProgress}   porcentajes 0-100 del turbo por regalo y por taps (predeterminados 6 y 20).
+    game-settings  {giftTurboProgress, tapTurboProgress}   porcentajes 0-100 de avance por regalo y por cada limite de taps (predeterminados 6 y 20).
     game-tools     {timerStartedAt}                        entero en ms: instante de inicio del cronometro del overlay.
     voice-config   {repeatCooldownMinutes,donTortuEnabled,enabledLevels}   tiempo de antirrepeticion, estado de Don Tortu y niveles activos.
     game-command   {command}                               valores que el frontend entiende: 'refresh' (recarga la pagina), 'turbo-down', 'turbo-up'. El servidor solo debe enviar los de su lista permitida.
@@ -144,7 +144,7 @@
   F7  DEDUPLICAR por IDs de origen recientes (no enviar dos veces el mismo evento).
   F8  COMBOS DE REGALOS: calcular el delta de cada combo para no contar repetidos. Conservar tal cual los activityCount de regalos y likes.
   F9  GET /api/events (SSE): 'event: status' {connected,status} en cada cambio de conexion y 'event: update' {entry} por cada evento real.
-  F10 CONFIG DE TURBO: guardar y entregar los porcentajes (0 a 100). Predeterminados: regalo 6 %, taps 20 %.
+  F10 CONFIG DE AVANCE/TURBO: guardar y entregar los porcentajes (0 a 100). Predeterminados: regalo 6 %, taps 20 %.
   F11 ESTADO DEL JUEGO: guardar los documentos de estado del overlay (juego, cuadro del torneo, votos) y servir la carga inicial de documentos pequenos (GET /api/state.js). NO calcular el cuadro ni resultados.
   F12 TORNEO LIBRE (API separada): registrar votos de comentarios mientras estaba habilitado, aceptar nombres libres de equipos y contar usuarios unicos con huellas hash (sin guardar el nombre).
   F13 COPAS: registrar la copa que comunica el frontend SOLO si el codigo de pais es valido.
@@ -183,8 +183,8 @@
    - Backend: conserva tal cual los conteos de actividad (activityCount) que llegan del conector para regalos y likes.
    - Frontend: pesos por evento = ingreso (member) 1, comentario 10, like 1 por cada like, seguir 3, compartir 5. Los REGALOS NO suman taps: avanzan la pista directamente. Los comentarios repetidos del mismo usuario se limitan a uno cada 8 s. (OJO: los valores de las estadisticas por VS de la regla 18 son otra cosa: miembro 1, comentario 5, like 1, seguir 3, compartir 3, regalo 10.)
   AVANCE Y TURBO
-   - Backend: guarda los avances configurables del turbo; acepta valores entre 0 y 100 %. Predeterminados en codigo: turbo por regalo 6 %, turbo por taps 20 %.
-   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps se mantiene fijo en 45 por equipo. Al completarlo activa turbo 7 s; su porcentaje se configura desde el backend.
+   - Backend: guarda los avances configurables; acepta valores entre 0 y 100 %. Predeterminados en codigo: regalo 6 %, cada limite de taps 20 %.
+   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps se mantiene fijo en 45 por equipo y al completarlo avanza directamente el porcentaje configurado, sin activar turbo.
   ASIGNACION AL EQUIPO
    - Backend: NO decide puntajes ni ganador.
    - Frontend: los eventos de una persona van a su equipo elegido/asignado; los eventos anonimos (sin username) usan el carril seleccionado. Un regalo toma el equipo que el usuario nombro en el chat en los ultimos 60 s, si lo hay (si no, el que tiene asignado).
@@ -287,7 +287,7 @@
 ========================================================================================================
  PARTE 6 - VOZ EN OFF (tabla de prioridad)
 ========================================================================================================
- El frontend habla por una cola de prioridad (capa voz-prioridad-js, al final del HTML). La tabla puede venir del backend: GET /api/voice-priority.
+ El frontend habla por una cola serializada (capa voz-prioridad-js, al final del HTML): comentarios e interacciones reales, más el anuncio inicial del duelo. No narra el progreso de la carrera.
   Forma:  {"trackMeters":100,"levels":[{id,priority,ttlMs,max,say,coalesceMs?,everyMs?,quietMs?,maxChars?}, ...]}   (menor priority = habla primero)
   Niveles por defecto del frontend:
    gift     priority 0  MAXIMA. Agradece cada regalo y dispara una alerta alegre desde 1 diamante; no expira ni descarta regalos.
@@ -373,7 +373,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
 3. EVENTOS REALES, CONTADOR Y TURBO
  - Contador de taps (ponderado): miembro 1, comentario 10, like 1 por me gusta, seguir 3, compartir 5. Todo evento real que no es regalo va SOLO al contador; los eventos reales no avanzan la pista directamente.
  - Limite de taps fijo en 45 por equipo; ni el avance de la carrera ni los controles pueden modificarlo.
- - Al completar el limite se activa el turbo del contador durante 7 s (HEART_TURBO_MS), sin salto inmediato.
+ - Al completar el limite de taps, la pista avanza el porcentaje configurado directamente; no activa turbo.
  - Regalo real: NO da avance, turbo ni puntos (REGLA 0-B; antes +10% y turbo de 15 s). Solo se agradece y se muestra en el cuadro de honor (EXCEPCION 1). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
  - Eventos sin equipo asignado: van al carril seleccionado. Un comentario que nombra un equipo que no corre ademas le suma 1 voto.
  - Gamificacion del limite de taps (v11, capa SOLO visual, no altera limites ni puntos; id gami-taps): marcas en 25/50/75 %, color por fase (rosa, naranja, dorado), estado CASI LLENO desde 90 %, COMBO de eventos reales seguidos (2,5 s) y racha de turbos de la ronda (⚡ ×N, banner en 3, 5 y 8). Solo informa; nunca pide acciones (regla 1).
@@ -420,7 +420,7 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
  14. ESFUERZO DE LA TORTUGA (v15, capa SOLO visual; id tortu-esfuerzo, al final): mientras carga la barra del limite de taps, cada tap/like/seguir/compartir REAL hace que las patas y el caparazon de la tortuga del equipo trabajen mas (4 fases segun el llenado; fase 4 con brillo y fuego, tambien durante el turbo) y suelta polvo; un comentario real da un empujon y un globito. Se apaga 1,8 s despues del ultimo evento. No cambia limites ni puntos; nunca pide acciones (regla 1).
  15. AVISOS DE MAXIMO 3 s (v16, id aviso-cuenta, al final): ninguna ventana emergente (banner, aviso, tarjeta de regalo, logro, hype) dura mas de 3 s y todas muestran un contador regresivo en segundos (3, 2, 1) en su esquina. La tarjeta de regalo dura 2,6 s (+0,4 s de salida). Solo informa; nunca pide acciones (regla 1).
  16. RECTA FINAL SIN VENTANAS (v17, id recta-final-js, al final): desde que la tortuga lider pasa RF=70 % de pista, ninguna ventana emergente (banner, aviso, regalo, logro, hype) se muestra, para ver la pista completa; quedan en espera (maximo 3, las mas recientes) y se muestran una a una DESPUES, al llegar a la meta (fin de ronda). Al empezar una ronda nueva lo pendiente se descarta. Solo informa; nunca pide acciones (regla 1).
- 17. VOZ POR PRIORIDAD Y METROS (v18, id voz-prioridad-js, al final): orden: 1 agradecer cada regalo y alerta alegre desde 1 diamante; 2 anunciar cambios de equipo; 3 leer comentarios; 4 agradecer acciones, saludar, dar la bienvenida al hincha destacado con su usuario y el líder de pista, y anunciar turbos por equipo; 5 narrar el avance y lo que falta para la meta; 6 (ELIMINADO por la REGLA 0-A: ya no se invita a enviar tap tap). Al empezar, solo anuncia el duelo. Tabla: server/voice-priority.js -> GET /api/voice-priority. La pista se mide en METROS: la meta esta a 100 m (1 punto de pista = 1 m). Nunca pide acciones (regla 1).
+ 17. VOZ EN COLA (id voz-prioridad-js, al final): solo lee comentarios e interacciones reales de usuarios y anuncia al empezar qué equipos se enfrentan. Una sola frase habla a la vez; no hay narración del avance ni anuncios de logros/turbos. Tabla: server/voice-priority.js -> GET /api/voice-priority.
  18. VS EN BUCLE + LISTA EN EL BACK + ESTADISTICAS POR VS (v19, ids vs-motor / vs-motor-js, al final): cada VS se repite (serie tras serie) mientras haya interaccion; cuando la cuenta regresiva llega a 0 avanza en tandas: todos los VS habilitados marcados populares y, al final, un solo VS habilitado no popular. Al completar la tanda recarga los populares con el siguiente no popular habilitado. Popularidad y estadisticas viven en cluss.vs. Valor por evento real: miembro 1, comentario 5, like 1 c/u, seguir 3, compartir 3, regalo 10; ranking = valor por ronda. Los bots no cuentan. Nunca pide acciones (regla 1).
  19. AUDIENCIA EN COPAS: eliminada del cuadro de copas. Solo se muestra el contador de copas, sin icono ni número de audiencia.
  20. VOZ: CAMBIO DE EQUIPO Y SALUDO AL INGRESAR (v21, dentro de voz-prioridad-js): nivel 'move' = prioridad 1: un hincha que nombra un club ('se une a X') o cambia de uno ('cambio de X a Y') se anuncia en cola (FIFO, maximo 8). Nivel 'welcome' = prioridad 3, saludo 'Bienvenido <usuario>' a cada evento 'member' (una vez; de nuevo si reingresa tras 10 min; maximo 6 en cola). Si el backend (GET /api/voice-priority) no trae esos niveles, el frontend agrega los suyos por defecto. Nunca pide acciones (regla 1).
@@ -550,6 +550,7 @@ body{margin:0;background:var(--page);font-family:Inter,system-ui,sans-serif;colo
 .foot{margin-top:auto;display:flex;align-items:center}.live{white-space:nowrap}
 .sm{height:28px;border:2px solid #3f2713;border-radius:7px;background:linear-gradient(#a8743f,#6e4524);color:#fff;font:800 10px Inter,sans-serif;padding:0 8px;cursor:pointer}
 .sm.on{background:linear-gradient(#3ddc5a,#1f8a38)}
+.sm.off{background:linear-gradient(#a8323c,#70242a)}
 .win{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(20,10,4,.72);border-radius:10px;z-index:5;text-align:center}
 .win.show{display:flex}
 .win h2{margin:0;font-weight:800;text-shadow:0 2px 6px #000;line-height:1.1}
@@ -887,7 +888,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
 <div class="win" id="win" role="alertdialog" aria-label="Ganador"></div>
 </section>
 <!-- Herramientas visibles: estado de conexión, ajuste del límite de taps y recarga. -->
-<div class="foot"><button class="live connecting" id="connection" type="button" aria-label="Conectando; tocar para cambiar de usuario" aria-live="polite">conectando</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps del turbo en 10" title="Turbo: 10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps del turbo en 10" title="Turbo: 10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Herramientas del backend">⚙️</button></div>
+<div class="foot"><button class="live connecting" id="connection" type="button" aria-label="Conectando; tocar para cambiar de usuario" aria-live="polite">conectando</button><button class="sm" id="voiceToggle" type="button" aria-pressed="false" aria-label="Desactivar voz" title="Desactivar voz">🔊</button><button class="sm" id="bTurboDn" type="button" aria-label="Bajar el límite de taps en 10" title="10 taps menos">➖</button><button class="sm" id="bTurboUp" type="button" aria-label="Subir el límite de taps en 10" title="10 taps más">➕</button><button class="sm" id="bRefresh" type="button" aria-label="Refrescar página" title="Refrescar página">🔄</button><button class="sm" id="bMonitor" type="button" aria-label="Abrir monitor por unidad de negocio" title="Abrir monitor por unidad de negocio">📊</button><button class="sm" id="bBackend" type="button" aria-label="Abrir herramientas del backend" title="Abrir herramientas del backend">⚙️</button></div>
 <!-- FRANJA DE ESTADISTICAS del live: solo eventos REALES (los bots y los toques manuales no cuentan). -->
 <div class="evs" id="evs" role="status" aria-label="Estadisticas del live"><div class="st" data-k="member" title="Unidos"><b>👥</b><span>0</span></div><div class="st" data-k="chat" title="Comentarios"><b>💬</b><span>0</span></div><div class="st" data-k="like" title="Me gusta"><b>❤️</b><span>0</span></div><div class="st" data-k="follow" title="Seguidores nuevos"><b>➕</b><span>0</span></div><div class="st" data-k="share" title="Compartidos"><b>↗️</b><span>0</span></div></div>
 <button id="giftCounter" class="gift-total st" data-k="gift" type="button" aria-label="Regalos mostrados en esta sesión: 0" title="Regalos mostrados en esta sesión: 0"><span id="giftCount">0</span></button>
@@ -1144,7 +1145,7 @@ const PASSIVE_CAP=100;    /* el avance pasivo se detiene en este % de pista: el 
 const HARD=0.5;          /* multiplicador de puntos de cada evento (1 = facil, menor = mas dificil) */
 const TURBO_PPS=4,GIFT_TURBO_MS=15000,HEART_TURBO_MS=7000;
 let GIFT_TURBO_PROGRESS=6,HEART_TURBO_PROGRESS=20;
-let GIFT_TURBO_PPS=GIFT_TURBO_PROGRESS/(GIFT_TURBO_MS/1000),HEART_TURBO_PPS=HEART_TURBO_PROGRESS/(HEART_TURBO_MS/1000);
+let GIFT_TURBO_PPS=GIFT_TURBO_PROGRESS/(GIFT_TURBO_MS/1000);
 function turboGain(rate,ms,handicap){return rate*ms/1000*handicap}
 const GIFT_PROGRESS=0,GIFT_TEAM_WINDOW_MS=60000; /* REGLA 0-B: un regalo NO da avance, turbo ni puntos en la carrera (antes 10). Fórmula: +10 m + 5 m/💎 */
 /* Devuelve el equipo que un usuario nombro en el chat hace poco (para saber a quien apoya su regalo). */
@@ -1233,7 +1234,7 @@ function motorSnapshot(){return window.serverMotorSnapshot||(typeof window.getLi
 function motorTeamTable(snapshot){
  const teams=snapshot&&Array.isArray(snapshot.teams)?snapshot.teams:[];
  if(!teams.length)return'<p class="mut">Esperando valores del motor.</p>';
- return'<table><tr><th>Equipo</th><th>Avance</th><th>Taps</th><th>Límite</th><th>Eventos</th><th>Turbo</th></tr>'+
+ return'<table><tr><th>Equipo</th><th>Avance</th><th>Taps</th><th>Límite</th><th>Eventos</th><th>Turbo (inactividad / regalos)</th></tr>'+
   teams.map(team=>`<tr><td>${stH(team.name)}</td><td>${(+team.progress||0).toFixed(1)}%</td><td>${Math.floor(+team.taps||0)}</td><td>${Math.floor(+team.tapLimit||0)}</td><td>${Math.floor(+team.eventTotal||0)}</td><td>${Math.ceil((+team.turboMs||0)/1000)}s / ${Math.ceil((+team.giftTurboMs||0)/1000)}s</td></tr>`).join('')+'</table>';
 }
 function voiceSnapshot(){return typeof window.getVoiceMonitorState==='function'?window.getVoiceMonitorState():null}
@@ -1262,7 +1263,7 @@ const ST_VIEWS={
   return`<p><b>Estado:</b> ${stH(m.phase||'—')} · <b>Tiempo:</b> ${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')} · <b>Inactividad:</b> ${Math.floor(+m.idleSeconds||0)} s · <b>Ganador:</b> ${stH(m.winner||'—')}</p><p class="mut">${window.serverMotorSnapshot?'Snapshot retransmitido por el backend.':'Esperando retransmisión del backend; se muestra el snapshot local.'}</p>`+
    motorTeamTable(m)+'<pre>'+stH(JSON.stringify(m.stats||{},null,2))+'</pre>'},
  'turbo-equipos'(){const m=motorSnapshot(),cfg=m&&m.turbo||{},teams=m&&m.teams||[];
-  return`<p><b>Límite fijo:</b> ${teams.map(t=>stH(t.name)+' '+Math.floor(+t.taps||0)+' / 45').join(' · ')||'45 taps'}</p><p><b>Turbo de taps:</b> ${cfg.tapProgress??'—'}% por ${cfg.tapDurationMs?Math.round(cfg.tapDurationMs/1000)+'s':'—'}</p><p class="mut">El límite de taps permanece fijo en 45 durante toda la carrera.</p>`},
+  return`<p><b>Límite fijo:</b> ${teams.map(t=>stH(t.name)+' '+Math.floor(+t.taps||0)+' / 45').join(' · ')||'45 taps'}</p><p><b>Avance por límite de taps:</b> ${cfg.tapProgress??'—'}%</p><p class="mut">Cada 45 taps se avanza directamente ese porcentaje; no se activa turbo.</p>`},
  'turbo-regalos'(){const m=motorSnapshot(),cfg=m&&m.turbo||{};
   return`<p><b>Avance configurado:</b> ${cfg.giftProgress??'—'}%</p><p><b>Duración configurada:</b> ${cfg.giftDurationMs?Math.round(cfg.giftDurationMs/1000)+'s':'—'}</p>${motorTeamTable(m)}`},
  usuarios(){const IC={chat:'💬',like:'❤️',follow:'➕',share:'↗️',member:'👋'},NM={chat:'comentó',like:'likes',follow:'siguió',share:'compartió',member:'se unió'};
@@ -1389,7 +1390,7 @@ function laneSVG(i,t){
 <path id="cw${i}" display="none" d="M36 410 L38 394 L44 401 L50 390 L56 401 L62 394 L64 410Z" fill="url(#go${i})" stroke="#8a6410" stroke-width="1.5"/>
 </g><text id="clubName${i}" x="50" y="552" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".7" paint-order="stroke">${t.n}</text></g></g><path d="M0 8Q0 0 8 0H8V630H8Q0 630 0 622Z M112 0H112Q120 0 120 8V622Q120 630 112 630H112Z" fill="#b07a45"/><path d="M8 10V620 M112 10V620" stroke="#0d0602" stroke-width="2.6" opacity=".95"/><path d="M2.5 12V618 M117.5 12V618" stroke="#e3b87d" stroke-width="1" opacity=".55"/><path d="M0 535H80" stroke="#000" stroke-width="0"/><rect x="1" y="1" width="118" height="628" rx="8" fill="none" stroke="#3f2713" stroke-width="2"/></svg>`;
 }
-$('#lanes').innerHTML=T.map((t,i)=>`<div class="lane" id="ln${i}"><button class="hd" data-i="${i}" aria-pressed="false" aria-label="${t.n}"><svg class="fgb" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${flag(t.id,0,0,20,14)}</svg><span class="pod"></span><svg class="crown" width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 14 L3 3 L7 8 L10 1 L13 8 L17 3 L18 14Z" fill="#ffd34d" stroke="#8a6410" stroke-width="1.2"/></svg></button><div class="hb" id="hb${i}" role="progressbar" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0" aria-label="Contador tap tap de ${t.n}; solo eventos reales suman taps; cada 500 activa el turbo" title="Solo los eventos reales de TikTok suman taps; al llegar a 500 se activa el turbo"><i><b></b></i><em>0</em></div><div class="sv" id="sv${i}">${laneSVG(i,t)}</div><div class="team-total" id="teamTotal${i}" title="Interacciones totales de ${t.n}"><span>EVENTOS</span><b>0</b></div></div>`).join('');
+$('#lanes').innerHTML=T.map((t,i)=>`<div class="lane" id="ln${i}"><button class="hd" data-i="${i}" aria-pressed="false" aria-label="${t.n}"><svg class="fgb" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${flag(t.id,0,0,20,14)}</svg><span class="pod"></span><svg class="crown" width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 14 L3 3 L7 8 L10 1 L13 8 L17 3 L18 14Z" fill="#ffd34d" stroke="#8a6410" stroke-width="1.2"/></svg></button><div class="hb" id="hb${i}" role="progressbar" aria-valuemin="0" aria-valuemax="45" aria-valuenow="0" aria-label="Contador tap tap de ${t.n}; solo eventos reales suman taps; al llegar a 45 avanza el paso configurado" title="Solo los eventos reales de TikTok suman taps; al llegar a 45 avanza el paso configurado"><i><b></b></i><em>0</em></div><div class="sv" id="sv${i}">${laneSVG(i,t)}</div><div class="team-total" id="teamTotal${i}" title="Interacciones totales de ${t.n}"><span>EVENTOS</span><b>0</b></div></div>`).join('');
 T.forEach((team,i)=>{const header=document.querySelector('#ln'+i+' .hd'),name=document.createElement('span');name.className='cn';name.textContent=team.n;header.insertBefore(name,header.querySelector('.pod'))});
 /* Ajusta el ancho de las tortugas (--kx) para que no se deformen al cambiar el tamano del carril */
 function fitK(){document.querySelectorAll('.sv').forEach(v=>{const w=v.offsetWidth,h=v.offsetHeight;if(w&&h)v.querySelectorAll('.in').forEach(g=>g.style.setProperty('--kx',(h/588*120/w).toFixed(3)))})}
@@ -1948,7 +1949,7 @@ function setLiveTurboSettings(giftProgress,tapProgress){
   GIFT_TURBO_PROGRESS=giftProgress;GIFT_TURBO_PPS=giftProgress/(GIFT_TURBO_MS/1000);
  }
  if(Number.isFinite(tapProgress)&&tapProgress>=0&&tapProgress<=100){
-  HEART_TURBO_PROGRESS=tapProgress;HEART_TURBO_PPS=tapProgress/(HEART_TURBO_MS/1000);
+  HEART_TURBO_PROGRESS=tapProgress;
  }
 }
 window.setLiveTurboSettings=setLiveTurboSettings;
@@ -1960,7 +1961,7 @@ function syncHeartLimit(){
  if(n<prevN)setTimeout(()=>T.forEach((_,i)=>{if(heart[i]>=HEART_N&&!over)heartAdd(i,0)}),0);
 }
 /* Dibuja el corazon (barra de likes) del equipo t. */
-function renderHeart(t){const h=$('#hb'+t);if(!h)return;h.querySelector('b').style.width=(heart[t]/HEART_N*100)+'%';h.querySelector('em').textContent=Math.floor(heart[t])+'/'+HEART_N;h.setAttribute('aria-valuemax',HEART_N);h.setAttribute('aria-valuenow',Math.floor(heart[t]));h.setAttribute('aria-label','Contador tap tap de '+T[t].n+'; solo eventos reales suman taps; '+HEART_N+' taps avanzan '+HEART_TURBO_PROGRESS+'% y activan turbo');h.title='Solo los eventos reales de TikTok suman taps; al llegar a '+HEART_N+' se activa el turbo'}
+function renderHeart(t){const h=$('#hb'+t);if(!h)return;h.querySelector('b').style.width=(heart[t]/HEART_N*100)+'%';h.querySelector('em').textContent=Math.floor(heart[t])+'/'+HEART_N;h.setAttribute('aria-valuemax',HEART_N);h.setAttribute('aria-valuenow',Math.floor(heart[t]));h.setAttribute('aria-label','Contador tap tap de '+T[t].n+'; solo eventos reales suman taps; '+HEART_N+' taps avanzan '+HEART_TURBO_PROGRESS+'%');h.title='Solo los eventos reales de TikTok suman taps; al llegar a '+HEART_N+' la pista avanza '+HEART_TURBO_PROGRESS+'%'}
 T.forEach((_,i)=>renderHeart(i));
 /* +N flotante sobre el contador en CADA tap/me gusta: el numero crece con la cantidad (rafagas de TikTok) */
 function tapPop(h,n){
@@ -1969,7 +1970,18 @@ function tapPop(h,n){
  e.style.fontSize=Math.min(24,13+Math.floor(Math.log2(n+1)*2))+'px';e.style.left=(18+Math.random()*50)+'%';
  h.appendChild(e);setTimeout(()=>e.remove(),800);
 }
-/* Suma taps ponderados al contador; al completar el limite actual activa el turbo. */
+function advanceForTapStep(t,steps){
+ const progress=HEART_TURBO_PROGRESS*steps;
+ if(progress<=0)return false;
+ noteTeamAdvance(t);
+ S[t].p+=progress;
+ const previousLead=lead;lead=update();
+ float(t,'+'+progress+' m');hop(t);walk(t);
+ if(S[t].p>=100){win(t);return true}
+ if(lead!==previousLead&&lead>=0)say(`¡${T[lead].n} toma la delantera!`);
+ return false;
+}
+/* Suma taps ponderados al contador; cada limite completado avanza el paso configurado. */
 function heartAdd(t,n){
  if(over||!T[t])return;
  if(n>0)tapStep(t,n);
@@ -1980,25 +1992,21 @@ function heartAdd(t,n){
  if(full)HEART_N=nextLimit;
  renderHeart(t);
  if(full){
- noteTeamAdvance(t);
   if(HEART_N<previousLimit)setTimeout(()=>T.forEach((_,i)=>{if(i!==t&&heart[i]>=HEART_N&&!over)heartAdd(i,0)}),0);
-  lead=update();turboOn(t,HEART_TURBO_MS*full,HEART_TURBO_PPS); /* sin salto inmediato: avanza lento durante el turbo */
-  const priorityVoice=window.vozPrioridad;
-  if(priorityVoice&&typeof priorityVoice.announceTurbo==='function')priorityVoice.announceTurbo(T[t].n);
+  advanceForTapStep(t,full);
  }
  const h=$('#hb'+t);
  h.classList.remove('bump');void h.offsetWidth;h.classList.add('bump'); /* cada me gusta / tap hace latir el contador */
  tapPop(h,n);
  if(full){
   h.classList.remove('full');void h.offsetWidth;h.classList.add('full');A.sfx('lead');
-  float(t,'❤️ +'+(HEART_TURBO_PROGRESS*full)+' m · TURBO');
-  hype('❤️',T[t].n,' · ¡TURBO! +'+(HEART_TURBO_PROGRESS*full)+' m',T[t].c);
+  hype('❤️',T[t].n,' · +'+(HEART_TURBO_PROGRESS*full)+' m',T[t].c);
  }
 }
 window.recordLiveTap=(team,count)=>heartAdd(team,count);
 /* Los controles antiguos permanecen como no-op para que los comandos remotos no alteren el limite fijo. */
 function setTurboLimit(){
- toast('Límite de turbo fijo en 45 taps','⚡');
+ toast('Límite fijo en 45 taps','⚡');
 }
 $('#bTurboUp').onclick=()=>setTurboLimit(10);
 $('#bTurboDn').onclick=()=>setTurboLimit(-10);
@@ -2347,7 +2355,7 @@ window.getLiveEventSnapshot=()=>({
  elapsedMs:window.getRaceElapsedMs(),
  idleSeconds:Math.max(0,Math.ceil((idleLimitMs()-(Date.now()-lastInteractionAt))/1000)),
  winner:over&&lead>=0?T[lead].n:'',
- turbo:{tapProgress:HEART_TURBO_PROGRESS,tapDurationMs:HEART_TURBO_MS,giftProgress:GIFT_TURBO_PROGRESS,giftDurationMs:GIFT_TURBO_MS},
+ turbo:{tapProgress:HEART_TURBO_PROGRESS,tapDurationMs:0,giftProgress:GIFT_TURBO_PROGRESS,giftDurationMs:GIFT_TURBO_MS},
  teams:T.map((team,index)=>({
   id:team.id,name:team.n,progress:Math.min(100,S[index].p),taps:heart[index],tapLimit:HEART_N,
   eventTotal:teamEventTotals.get(team.id)||0,
@@ -2368,9 +2376,9 @@ const idleStat=document.createElement('div');
 idleStat.className='st';idleStat.dataset.k='idle';idleStat.title='Tiempo restante sin interacción · avance visual alternado de 2 metros por segundo';
 idleStat.innerHTML='<b>⏳</b><span id="idleCountdown" aria-live="off">60s</span>';
 document.getElementById('evs').appendChild(idleStat);
-/* limite de taps actual (HEART_N): al llenarlo se activa el turbo */
+/* limite de taps actual (HEART_N): al llenarlo avanza el paso configurado */
 const limStat=document.createElement('div');
-limStat.className='st';limStat.dataset.k='lim';limStat.title='Límite de taps actual (al completarlo se activa el turbo)';
+limStat.className='st';limStat.dataset.k='lim';limStat.title='Límite de taps actual (al completarlo avanza el paso configurado)';
 limStat.innerHTML='<b>🎯</b><span id="tapLimit">100</span>';
 document.getElementById('evs').insertBefore(limStat,idleStat);
 /* Formato compacto de numeros (1.2K) */
@@ -2528,15 +2536,8 @@ function perks(e){
   const name=String(fan&&fan.name||mv[0]).replace(/[_.]+/g,' ');
   const club=team?cap(team.n):'';
   const greeting=club?'Saludamos al hincha destacado de '+club+', '+name:'Saludamos al hincha destacado, '+name;
-  const maxProgress=Math.max(...S.map(state=>Number(state.p)||0));
-  const leaders=S.map((state,index)=>({state,index})).filter(({state})=>(Number(state.p)||0)===maxProgress);
-  const leader=leaders.length===1?cap(T[leaders[0].index].n):'';
   lastMvp=mv[0];
   tz(greeting+(first?' · lidera la sala':' · es el nuevo MVP'),'👑');
-  const priorityVoice=window.vozPrioridad;
-  if(priorityVoice&&typeof priorityVoice.announceFeaturedFan==='function'){
-   priorityVoice.announceFeaturedFan(fan&&fan.name||mv[0],club,leader);
-  }
  }
 }
 /* ===== VOZ EN OFF: aviso inicial y narracion de carrera ===== */
@@ -2715,12 +2716,34 @@ function setDonTortuEnabled(enabled){
  if(!enabled){
   voiceQueue.length=0;giftQueue.length=0;chatQueue.length=0;narratorQueue.length=0;
   activeVoiceRequest=null;giftSpeaking=false;giftSpeechGeneration++;
-  try{SS&&SS.cancel();A.duck(0)}catch(e){}
+  if(window.vozPrioridad)window.vozPrioridad.clear();
+  else try{SS&&SS.cancel()}catch(e){}
+  try{A.duck(0)}catch(e){}
   dt0.classList.remove('talk');clearTimeout(talkT);
  }
  save();
 }
 window.setDonTortuEnabled=setDonTortuEnabled;
+function updateDonTortuButton(enabled){
+ const button=document.getElementById('voiceToggle');if(!button)return;
+ button.classList.toggle('on',enabled);button.classList.toggle('off',!enabled);
+ button.textContent=enabled?'🔊':'🔇';
+ button.setAttribute('aria-pressed',String(enabled));
+ button.setAttribute('aria-label',enabled?'Desactivar voz':'Activar voz');
+ button.title=enabled?'Desactivar voz':'Activar voz';
+}
+window.updateDonTortuButton=updateDonTortuButton;
+updateDonTortuButton(window.donTortuEnabled!==false);
+document.getElementById('voiceToggle').addEventListener('click',async()=>{
+ const button=document.getElementById('voiceToggle');button.disabled=true;
+ try{
+  const response=await fetch('/api/overlay/don-tortu',{method:'POST',credentials:'same-origin',headers:{'X-Overlay-Control':'don-tortu'}});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.message||'No se pudo cambiar la voz.');
+  setDonTortuEnabled(result.donTortuEnabled===true);
+ }catch(error){console.error('No se pudo cambiar la voz desde el overlay.',error)}
+ finally{button.disabled=false}
+});
 const _say=say;
 say=function(t){
  _say(t);if(P.vo)talk(1400);else{dt0.classList.remove('talk');clearTimeout(talkT)}
@@ -4030,6 +4053,11 @@ const names=t=>t.replace(NRE,m=>{const e=NAMES[m.toUpperCase()];if(!e)return m;r
 /* ---- 2) Textos completos (se comparan con el texto entero, sin espacios de los bordes) ---- */
 const EXACT={'¡Y ARRANCAN LAS TORTUGAS!':"AND THEY'RE OFF!",'¡TORTULIVE TE REGALA!':'TORTULIVE GIVES YOU A GIFT!','+10% AVANCE':'+10% BOOST','MODO TURBO':'TURBO MODE','MODO TURBO ⚡':'TURBO MODE ⚡','ROSITA REAL':'REAL ROSE','CERRAR':'CLOSE','Cerrar':'Close','✕ Cerrar':'✕ Close','↺ Reiniciar copas':'↺ Reset cups','🌎 Clubes':'🌎 Clubs','🎁 Regalos':'🎁 Gifts','🏆 Torneos':'🏆 Tournaments','👤 Usuarios':'👤 Users','🐢 Estadísticas':'🐢 Statistics','🏆 COPAS':'🏆 CUPS','Acciones':'Actions','Avatar de Don Tortu, el relator (tortuga)':'Avatar of Don Tortu, the announcer (turtle)','Bajar el límite de taps del turbo en 10':'Lower the turbo tap limit by 10','Subir el límite de taps del turbo en 10':'Raise the turbo tap limit by 10','Turbo: 10 taps menos':'Turbo: 10 taps less','Turbo: 10 taps más':'Turbo: 10 taps more','Comentarios':'Comments','Compartidos':'Shares','Copas por club':'Cups per club','Efectos de sonido (S)':'Sound effects (S)','Envía una rosita real en TikTok para activar el modo turbo':'Send a real Rose on TikTok to activate turbo mode','ROSITA deshabilitada; envía una rosita real en TikTok para activar el modo turbo, este botón local no da puntos':'ROSE disabled; send a real Rose on TikTok to activate turbo mode, this local button gives no points','Estadisticas del live':'Live stats','Estadísticas del live':'Live stats','Estadísticas de torneos':'Tournament stats','Estadísticas':'Statistics','Ganador':'Winner','Me gusta':'Likes','Narrador B: lee comentarios del chat':'Narrator B: reads chat comments','Narrador Don Tortu (V)':'Narrator Don Tortu (V)','Refrescar página':'Refresh page','Reiniciar copas (tocar dos veces)':'Reset cups (tap twice)','Seguidores nuevos':'New followers','Unidos':'Joined','Regalos':'Gifts','Rosa 🪙1':'Rose 🪙1','Pistola':'Money Gun','Otros':'Others','ROSA':'ROSE','PISTOLA':'MONEY GUN','DEDITOS':'FINGER HEART','DONA':'DONUT','CONFETI':'CONFETTI','MANOS':'HAND HEARTS','Duelo':'Duel','Ganó':'Won','Fecha':'Date','Menciones':'Mentions','Personas':'People','Ver':'View','Chat completo':'Full chat','Hincha destacado':'Featured fan','Nueva carrera':'New race','CTA principal':'Main CTA','· franja de arriba (Rosa / Pistola / Otros)':'· top strip (Rose / Gun / Others)','Equipo A':'Team A','Equipo B':'Team B','✔ ACTIVADO':'✔ ENABLED','✖ DESACTIVADO':'✖ DISABLED','Pagina de CTA':'CTA page','Abrir la página de CTA':'Open the CTA page','Tocá un regalo para mostrarlo u ocultarlo debajo del nombre del equipo.':'Tap a gift to show or hide it under the team name.','🚩 BANDERAS':'🚩 FLAGS','CATÁLOGO DE BANDERAS':'FLAG CATALOG','Banderas de los torneos':'Tournament flags','Toca para activar el sonido':'Tap to enable sound','Sala de honor: top 3 de regalos del partido':'Hall of honor: top 3 gifts of the match','Regalos del live (informativo)':'Live gifts (informational)','Conectado en vivo':'Connected live','Aún no se guardó ningún torneo.':'No tournament saved yet.','Todavía no hay comentarios con clubes.':'No club comments yet.','Todavía no hay usuarios registrados.':'No registered users yet.','⏳ En curso':'⏳ In progress','Cada comentario que nombra un club suma 1.':'Each comment naming a club adds 1.','Tu club':'Your club','tu club':'your club','su club':'their club','Seguir':'Follow'};
 /* ---- 3) Frases con nombres adentro (regex -> reemplazo). Se aplican primero. ---- */
+EXACT['Bajar el límite de taps en 10']='Lower the tap limit by 10';
+EXACT['Subir el límite de taps en 10']='Raise the tap limit by 10';
+EXACT['10 taps menos']='10 fewer taps';
+EXACT['10 taps más']='10 more taps';
+EXACT['Límite fijo en 45 taps']='Tap limit fixed at 45';
 const SENT=[
 [/Ganó (.+?)! Gracias por jugar y alentar\. En unos segundos arranca otra ronda, ¡te esperamos!/g,"$1 wins! Thanks for playing and cheering. Another round starts in a few seconds, we'll be waiting for you!"],
 [/Tenemos campeón: (.+?)! Gracias por estar\. Ya viene una nueva carrera\./g,'We have a champion: $1! Thanks for being here. A new race is coming.'],
@@ -4053,12 +4081,14 @@ const SENT=[
 [/Límite de turbo: (\d+) taps \(máximo\)/g,'Turbo limit: $1 taps (max)'],
 [/Turbo cada (\d+) taps/g,'Turbo every $1 taps'],
 [/Subiste al nivel (\d+)/g,'You reached level $1'],
-[/Contador tap tap de (.+?); solo eventos reales suman taps; (\d+) taps avanzan (.+?)% y activan turbo/g,'Tap-tap counter of $1; only real events add taps; $2 taps advance $3% and trigger turbo'],
+[/Contador tap tap de (.+?); solo eventos reales suman taps; (\d+) taps avanzan (.+?)%/g,'Tap-tap counter of $1; only real events add taps; $2 taps advance $3%'],
 [/Subiste a nivel (\d+)/g,'You reached level $1'],
 [/RONDA (\d+)/g,'ROUND $1']
 ];
 /* ---- 4) Fragmentos sueltos (de mas largo a mas corto) ---- */
 const FRAG_SRC={'OCTAVOS DE FINAL':'ROUND OF 16','CUARTOS DE FINAL':'QUARTERFINALS','SEMIFINALES':'SEMIFINALS','CAMPEÓN':'CHAMPION','Campeón':'Champion','AVANZA!':'ADVANCES!','GANA LA CARRERA':'WINS THE RACE','toma la delantera':'takes the lead','¡RECTA FINAL!':'FINAL STRETCH!','Recta final':'Final stretch','RECTA FINAL':'FINAL STRETCH','¡Todo se decide en la recta!':'Everything is decided on the straight!','¡Vamos, tortugas!':'Go, turtles!','¡Qué carrera, gente!':'What a race, people!','Tu equipo: ':'Your team: ','¡Gracias por el regalo!':'Thanks for the gift!','Copas reiniciadas: todo empieza de cero':'Cups reset: everything starts from zero','Toca ↺ otra vez para reiniciar las copas':'Tap ↺ again to reset the cups','¿Seguro? Toca de nuevo':'Sure? Tap again','Torneo automático (rota solo al terminar cada copa)':'Automatic tournament (rotates when each cup ends)','Torneo automático':'Automatic tournament','Torneo fijo: ':'Fixed tournament: ','Torneo: ':'Tournament: ','es el campeón del torneo':'is the tournament champion','🏆 ¡GANÓ EL TORNEO!':'🏆 WON THE TOURNAMENT!','➡️ Pasa a ':'➡️ Advances to ','NUEVO TORNEO':'NEW TOURNAMENT','SIGUIENTE PARTIDO':'NEXT MATCH',' · un solo partido':' · single match','¡Hincha acertado! Ganó tu equipo':'Spot-on fan! Your team won','¡Tu equipo ganó! +50 XP':'Your team won! +50 XP','¡Hincha destacado: ':'Featured fan: ',' es el nuevo MVP':' is the new MVP',' lidera la sala':' leads the room',' se pasó a ':' switched to ','Carrera pareja: 5 cambios de líder':'Close race: 5 lead changes','¡MÁXIMO!':'MAX!','¡Combo máximo x3!':'Max combo x3!','activa el TURBO 🚀':'activates TURBO 🚀','avanza y activa el TURBO 🚀':'advances and activates TURBO 🚀','comparte y suma +5':'shares and adds +5','gana al instante 🏆':'wins instantly 🏆','sigue y suma +3':'follows and adds +3','por tu regalo':'for your gift','por tus ':'for your ',' compartió · sumó taps para ':' shared · added taps for ',' · ¡TURBO! +':' · TURBO! +',' · ¡nuevo hincha de ':' · new fan of ',' · +10% y turbo para ':' · +10% and turbo for ',' · tocar para cambiar':' · tap to switch',' · ¡gracias!':' · thanks!','¡Gracias ':'Thanks ','! Hinchada de ':'! Fans of ',' por traer más hinchas!':' for bringing more fans!',' es hincha de ':' is a fan of ','¡Bienvenido a la familia, ':'Welcome to the family, ','Saludamos al hincha de ':'We greet the fan of ',' dice: ':' says: ','alguien':'someone',': en vivo':': live',': sin conexión':': offline',': conectando':': connecting','Inicio de carrera':'Race start','Cada hincha que escribe su equipo hace avanzar a su tortuga.':'Every fan who types their team moves their turtle forward.','Escribe el nombre de tu equipo en el chat para apoyarlo.':"Type your team's name in the chat to support it.",'Así se juega: tu equipo en el chat.':'How to play: type your team in the chat.','El ganador pasa a ':'The winner moves on to ','la siguiente ronda':'the next round','las semifinales':'the semifinals','la final':'the final','Límite de taps del turbo y versión':'Turbo tap limit and version','⚡ Límite ':'⚡ Limit ','Contador de ':'Counter of ','Hinchas de ':'Fans of ','Bandera de ':'Flag of ','Cuadro de ':'Bracket of ','Fixture del torneo: cuartos de final, semifinales y final':'Tournament fixture: quarterfinals, semifinals and final','Ruta ':'Track ',' con relieve':' with relief','MVP: ':'MVP: ','⏳ En curso':'⏳ In progress'};
+FRAG_SRC['Avance por límite de taps:']='Progress per tap limit:';
+FRAG_SRC['Cada 45 taps se avanza directamente ese porcentaje; no se activa turbo.']='Every 45 taps advance that percentage directly; no turbo is activated.';
 const FRAG=Object.keys(FRAG_SRC).sort((a,b)=>b.length-a.length).map(k=>[k,FRAG_SRC[k]]);
 const cache=new Map();
 function tr(x){
@@ -5088,7 +5118,7 @@ function onFull(i){
  }
 }
 function metaPop(s,n){
- const m=document.createElement('span');m.className='gt-meta';m.textContent='🎯 HONOR '+n;
+ const m=document.createElement('span');m.className='gt-meta';m.textContent='🎯 META '+n;
  s.h.appendChild(m);setTimeout(()=>m.remove(),1500);
 }
 st.forEach((s,i)=>{
@@ -5449,23 +5479,21 @@ SS.speak=function(u){
 /* 2) Tabla de prioridad (valor por defecto = la del backend) */
 const DEF_LEVELS=[
  {id:'move',priority:1,ttlMs:20000,max:8,say:{to:'{user} se une a {team}',from:'{user} cambió de {from} a {team}'}},
- {id:'turbo',priority:-1,ttlMs:12000,max:1,say:'¡Turbo para el equipo {team}!'},
- {id:'featured',priority:3,ttlMs:30000,max:1,say:'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'},
  {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'}
 ];
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
- DEF_LEVELS[0],DEF_LEVELS[1],
- {id:'gift',priority:0,ttlMs:0,max:0,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
+ DEF_LEVELS[0],
+ {id:'gift',priority:0,ttlMs:0,max:0,say:'Gracias {user} por enviar {count} {gift}.'},
  {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,say:'{user} dice: {text}'},
+ DEF_LEVELS[1],
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
- {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
+ {id:'match',priority:4,ttlMs:8000,max:1,say:{start:'Se enfrentan {teamA} y {teamB}.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
 function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)});
- /* REGLA 0-B: el agradecimiento por regalo conserva el texto de la experiencia del overlay y el cuadro de honor */
- TB.levels.forEach(l=>{if(l&&l.id==='gift')l.say='Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'})}
+ TB.levels.forEach(l=>{if(l&&l.id==='gift')l.say='Gracias {user} por enviar {count} {gift}.'})}
 ensureLevels();
 function normalizeEnabledLevels(source){
- const enabledByDefault=new Set(['gift','move','chat','turbo','featured','match']);
+ const enabledByDefault=new Set(['gift','move','chat','welcome','action','match']);
  return Object.fromEntries(TB.levels.map(level=>[
   level.id,
   typeof(source&&source[level.id])==='boolean'?source[level.id]:enabledByDefault.has(level.id)
@@ -5478,7 +5506,7 @@ const TRACK=()=>+TB.trackMeters||100;
 window.getRaceTrackMeters=TRACK;
 const fill=(s,o)=>String(s||'').replace(/\{(\w+)\}/g,(_,k)=>o[k]==null?'':o[k]);
 /* 3) Voz y cola */
-const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set(),interactionTimes=[],milestones=[20,50,80,90],spokenMilestones=new Set();let cur=null,finishActiveSpeech=null,lastEv=0,primed=false,queueGeneration=0;
+const Q=[],phraseDictionary=new Map(),pendingPhrases=new Set(),interactionTimes=[];let cur=null,finishActiveSpeech=null,primed=false,queueGeneration=0;
 const phraseCooldownMs=()=>Math.max(1,Math.min(1440,Number(TB.repeatCooldownMinutes)||1))*60000;
 function purgePhraseDictionary(now=Date.now()){for(const[key,phrase]of phraseDictionary)if(phrase.expiresAt<=now)phraseDictionary.delete(key)}
 function phraseKey(text){return String(text||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ')}
@@ -5502,8 +5530,8 @@ window.addEventListener('voice-config-update',event=>{
  }
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
-const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
-window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,enabled:levelEnabled(level.id)}))});
+const voiceRole=id=>['gift','move','chat','welcome','action'].includes(id)?'notifications':'commentator';
+window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
 const sameVoice=(a,b)=>!!a&&!!b&&(a===b||(a.voiceURI&&a.voiceURI===b.voiceURI)||(a.name===b.name&&a.lang===b.lang));
@@ -5515,9 +5543,6 @@ function releasePending(item){if(item&&item.phraseKey)pendingPhrases.delete(item
 function pruneInteractions(now=Date.now()){
  while(interactionTimes.length&&now-interactionTimes[0]>=60000)interactionTimes.shift();
  return interactionTimes.length;
-}
-function silenceCommentator(){
- for(let i=Q.length-1;i>=0;i--)if(Q[i].id==='match'){releasePending(Q[i]);Q.splice(i,1)}
 }
 function purge(){const n=Date.now();for(let i=Q.length-1;i>=0;i--)if(Q[i].ttl>0&&n-Q[i].at>Q[i].ttl){releasePending(Q[i]);Q.splice(i,1)}}
 function clearLegacyQueues(){
@@ -5583,9 +5608,8 @@ function moveText(user,to,prev){
 function onEvent(e){
  if(!e||e.bot)return;const t=e.type;if(!['member','chat','gift','like','follow','share'].includes(t))return;
  interactionTimes.push(Date.now());
- if(pruneInteractions()>20)silenceCommentator();
  const eventLevel=t==='gift'?'gift':t==='chat'?'chat':t==='member'?'welcome':'action';if(!levelEnabled(eventLevel))return;
- const user=clean(e.displayName||e.username);if(!user||safe(()=>over))return;lastEv=Date.now();
+ const user=clean(e.displayName||e.username);if(!user||safe(()=>over))return;
  const uk=String(e.username||'').trim().toLowerCase(),now0=Date.now();
  if(t==='gift'){
   if(Number(e.giftDiamonds)>=1)safe(()=>window.fx&&window.fx.FA&&window.fx.FA.p('cheer'));
@@ -5594,7 +5618,7 @@ function onEvent(e){
   const gift=String(e.giftName||e.gift_name||e.gift||'regalo').trim();
   const count=Math.max(1,Math.floor(Number(e.activityCount)||1));
   const template=EN()
-   ?'Thank you {user} for sending {count} {gift}. Your team {team} is entering turbo mode, and your photo is in the Hall of Fame.'
+   ?'Thank you {user} for sending {count} {gift}.'
    :LV('gift').say;
   return say('gift',fill(template,{user,gift,count,team}));
  }
@@ -5624,53 +5648,18 @@ function onEvent(e){
  if(L.say&&L.say[t])say('action',fill(L.say[t],{user}));
 }
 const _rx=M.receive;if(typeof _rx==='function')M.receive=function(e){const r=_rx.apply(this,arguments);const entry=e&&e.entry&&typeof e.entry==='object'?e.entry:e;safe(()=>onEvent(entry));return r};
-/* 5) Como va el partido, en METROS (1 punto de pista = 1 metro; meta = 100) */
+/* 5) Al empezar, identifica los equipos que se enfrentan. El resto de la voz se reserva a interacciones reales. */
 const nm=i=>{const n=String(safe(()=>T[i].n)||'');return n?n[0]+n.slice(1).toLowerCase():''};
-const mts=i=>{
- const idle=typeof window.getIdleVisualAdvanceMeters==='function'?window.getIdleVisualAdvanceMeters():[0,0];
- return Math.max(0,Math.min(TRACK(),Math.round((safe(()=>S[i].p)||0)*TRACK()/100+(idle[i]||0))));
-};
-function describe(kind){
- const a=mts(0),b=mts(1),li=a>=b?0:1,oi=1-li;
- const o={lead:nm(li),leadM:mts(li),other:nm(oi),otherM:mts(oi),left:TRACK()-mts(li),track:TRACK()};
- const L=LV('match').say||{};
- const narration=fill(kind==='final'?L.final:kind==='win'?L.win:kind==='start'?L.start:L.normal,o);
- const losing=a===b?(EN()?'The teams are tied; no team is behind.':'Los equipos están empatados; nadie va perdiendo.'):
-  (EN()?nm(oi)+' is losing.':nm(oi)+' va perdiendo.');
- return narration+' '+losing;
-}
-setInterval(()=>{
- if(safe(()=>over))return;
- const meters=Math.max(mts(0),mts(1)),busy=pruneInteractions()>20;
- milestones.forEach(milestone=>{
-  if(meters<milestone||spokenMilestones.has(milestone))return;
-  spokenMilestones.add(milestone);
-  if(!busy)say('match',(EN()?'Race passes ':'La carrera supera los ')+milestone+(EN()?' meters. ':' metros. ')+describe('normal'));
- });
-},1000);
 const _cr=M.completeRound;
 if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arguments);clearPendingQueue();return r};
 function announceRace(){
- const start=LV('match').say&&LV('match').say.start||'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.';
- say('match',fill(start,{teamA:nm(0),teamB:nm(1),track:TRACK()}),false,true);
+ const start=LV('match').say&&LV('match').say.start||'Se enfrentan {teamA} y {teamB}.';
+ say('match',fill(start,{teamA:nm(0),teamB:nm(1)}),false,true);
 }
 if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(this,arguments);
- clearPendingQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();announceRace();return r}}
-function announceFeaturedFan(username,team,leader){
- const user=String(username||'').trim().replace(/^@+/,'').slice(0,40);if(!user)return;
- const raceStatus=leader?leader+' va primero en la pista.':'La carrera está empatada.';
- const text=EN()
-  ?'Welcome the featured fan of club '+(team||'the community')+', user '+user+'. '+(leader?leader+' is leading the track.':'The race is tied.')
-  :fill(LV('featured').say||'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}',{team:team||'la comunidad',user,leader:raceStatus});
- say('featured',text);
-}
-function announceTurbo(team){
- const name=String(team||'').trim();if(!name)return;
- const text=EN()?'Turbo for team '+name+'!':fill(LV('turbo').say||'¡Turbo para el equipo {team}!',{team:name});
- say('turbo',text);
-}
+ clearPendingQueue();side.clear();interactionTimes.length=0;announceRace();return r}}
 announceRace();
-window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues,announceFeaturedFan,announceTurbo,announceRace};
+window.vozPrioridad={queue:Q,table:()=>TB,clear:clearQueue,clearLegacy:clearLegacyQueues,announceRace};
 })();
 </script>
 <!-- ===== v19: ROTACION DE LOS DOS CLASICOS, LISTA EN EL BACK Y MOTOR DE ESTADISTICAS POR VS. Olimpia-Cerro y Barcelona-Real Madrid se alternan al llegar a cero. Todo se guarda en cluss.vs. Boton 🆚 = panel. ===== -->

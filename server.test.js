@@ -55,7 +55,7 @@ test('tap limit stays fixed at 45 per team despite track progress and manual adj
 
   assert.equal(context.automaticLimit, 45);
   assert.equal(context.manualLimit, 45);
-  assert.equal(context.toastMessage, 'Límite de turbo fijo en 45 taps');
+  assert.equal(context.toastMessage, 'Límite fijo en 45 taps');
 });
 
 test('idle visual advance waits 15 seconds, alternates teams at two meters per second, and resets per race', () => {
@@ -156,7 +156,7 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   spoken.length = 0;
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'aná', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
-  assert.deepEqual(spoken, ['Gracias Ana por enviar 1 Rosa. Tu equipo Olimpia entra en modo turbo y tu foto queda en el cuadro de honor.']);
+  assert.deepEqual(spoken, ['Gracias Ana por enviar 1 Rosa.']);
   assert.equal(window.getVoiceMonitorState().recentPhrases.length, 1);
   now += 59999;
   window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
@@ -189,11 +189,12 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   assert.equal(sandbox.giftSpeechGeneration, 2);
 });
 
-test('race starts announce both teams without tap-tap support narration', () => {
+test('race start announces the matchup and queues comments without overlap', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
   const spoken = [];
+  const timers = [];
   const browser = {
     window: {
       speechSynthesis: {
@@ -212,15 +213,22 @@ test('race starts announce both teams without tap-tap support narration', () => 
     over: false,
     fetch: () => Promise.resolve({ ok: false }),
     setInterval: () => 0,
-    setTimeout: () => 0,
+    setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; },
     clearTimeout() {},
     addEventListener() {},
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
   runInNewContext(script, browser);
-  assert.match(spoken[0].text, /Olimpia y Cerro/);
+  assert.match(spoken[0].text, /Se enfrentan Olimpia y Cerro/);
   assert.equal(spoken.some(item => /tap[- ]tap|apoyar a tu equipo/i.test(item.text)), false);
   assert.equal(browser.window.getVoiceMonitorState().levels.some(level => level.id === 'support'), false);
+  browser.window.liveEventMonitor.receive({ type: 'chat', displayName: 'Ana', username: 'ana', content: 'Hola' });
+  assert.equal(spoken.length, 1);
+  assert.match(browser.window.getVoiceMonitorState().current, /Se enfrentan Olimpia y Cerro/);
+  assert.deepEqual(Array.from(browser.window.getVoiceMonitorState().queue, item => item.id), ['chat']);
+  spoken[0].onend();
+  timers.find(timer => timer.delay === 150).callback();
+  assert.equal(spoken[1].text, 'Ana dice: Hola');
 });
 
 test('last donors persist by team, render without gift details, and survive race reset', () => {
@@ -303,7 +311,7 @@ test('last donors persist by team, render without gift details, and survive race
   assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
 });
 
-test('main voice announces only the four milestones and names the losing team', () => {
+test('voice does not narrate race progress or milestones', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
@@ -336,19 +344,10 @@ test('main voice announces only the four milestones and names the losing team', 
   runInNewContext(script, browser);
   browser.window.vozPrioridad.clear();
   spoken.length = 0;
-  const announceMilestones = intervals.filter(interval => interval.ms === 1000).at(-1).callback;
-  for (const [index, milestone] of [20, 50, 80, 90].entries()) {
-    browser.S[0].p = milestone;
-    announceMilestones();
-    assert.match(spoken[index].text, new RegExp(`${milestone} metros`));
-    assert.match(spoken[index].text, /Cerro va perdiendo/);
-    spoken[index].onend();
-    while (timers.length) timers.shift()();
-  }
-  browser.S[0].p = 100;
-  announceMilestones();
-  assert.equal(spoken.length, 4);
-  assert.deepEqual(Array.from(browser.window.getVoiceMonitorState().spokenMilestones), [20, 50, 80, 90]);
+  browser.S[0].p = 90;
+  intervals.forEach(interval => interval.callback());
+  assert.deepEqual(spoken, []);
+  assert.equal(browser.window.getVoiceMonitorState().queue.length, 0);
 });
 
 test('high event volume lets the current main voice finish without interruption', () => {
@@ -381,8 +380,7 @@ test('high event volume lets the current main voice finish without interruption'
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
   runInNewContext(script, browser);
-  browser.S[0].p = 20;
-  intervals.filter(interval => interval.ms === 1000).at(-1).callback();
+  assert.match(browser.window.getVoiceMonitorState().current, /Se enfrentan Olimpia y Cerro/);
   assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
   for (let index = 0; index < 20; index++) {
     browser.window.liveEventMonitor.receive({ type: 'follow', username: `fan${index}` });
@@ -395,16 +393,14 @@ test('high event volume lets the current main voice finish without interruption'
   assert.equal(cancelCount, 0);
 });
 
-test('turbo uses the first voice, jumps the queue, and never interrupts a phrase', () => {
+test('voice priority excludes turbo and featured-fan narration', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
-  const spoken = [];
-  const timers = [];
   const browser = {
     window: {
       speechSynthesis: {
-        speak: utterance => spoken.push(utterance),
+        speak() {},
         cancel() {},
         getVoices: () => [],
         addEventListener() {}
@@ -419,24 +415,17 @@ test('turbo uses the first voice, jumps the queue, and never interrupts a phrase
     over: false,
     fetch: () => Promise.resolve({ ok: false }),
     setInterval: () => 0,
-    setTimeout: (callback, delay) => { timers.push({ callback, delay }); return timers.length; },
+    setTimeout: () => 0,
     clearTimeout() {},
     addEventListener() {},
     SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } }
   };
   runInNewContext(script, browser);
-  browser.window.vozPrioridad.announceTurbo('Olimpia');
-  assert.equal(spoken.length, 1);
-  assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().queue.map(item => [item.id, item.priority, item.role]))),
-    [['turbo', -1, 'commentator']]
-  );
-  spoken[0].onend();
-  const next = timers.find(timer => timer.delay === 150);
-  assert.ok(next);
-  next.callback();
-  assert.match(spoken[1].text, /Turbo para el equipo Olimpia/);
+  const voice = browser.window.vozPrioridad;
+  const levels = browser.window.getVoiceMonitorState().levels.map(level => level.id);
+  assert.equal(voice.announceTurbo, undefined);
+  assert.equal(voice.announceFeaturedFan, undefined);
+  assert.deepEqual(Array.from(levels).sort(), ['action', 'chat', 'gift', 'match', 'move', 'welcome']);
 });
 
 test('TikTok events flow through SSE and the voice queue in business-priority order', async () => {
@@ -524,7 +513,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       user: { uniqueId: `${id}-gift`, nickname: 'Gift Fan' }
     });
     browser.window.liveEventMonitor.receive({ entry: gift });
-    assert.equal(spoken[0]?.text, 'Gracias Gift Fan por enviar 1 Rose. Tu equipo Cerro entra en modo turbo y tu foto queda en el cuadro de honor.');
+    assert.equal(spoken[0]?.text, 'Gracias Gift Fan por enviar 1 Rose.');
     assert.equal(spoken[0]?.voice, notificationVoice);
 
     await emit('chat', {
@@ -540,50 +529,51 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
 
     assert.deepEqual(
       JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().queue.map(item => [item.id, item.priority]))),
-      [['move', 1], ['chat', 2]]
+      [['move', 1], ['chat', 2], ['welcome', 3], ['action', 3]]
     );
-    const matchTicks = intervals.filter(interval => interval.ms === 1000);
-    const matchTick = matchTicks[matchTicks.length - 1].callback;
-    matchTick();
-    assert.equal(browser.window.getVoiceMonitorState().queue.some(item => item.id === 'match'), false);
 
     for (const [index, expected] of [
       [1, 'Chat Fan se une a Cerro'],
-      [2, 'Chat Fan dice: Cerro vamos todos']
+      [2, 'Chat Fan dice: Cerro vamos todos'],
+      [3, 'Bienvenido Member Fan'],
+      [4, 'Gracias Follow Fan por seguirnos']
     ]) {
       spoken[index - 1].onend();
       await new Promise(resolve => setTimeout(resolve, 275));
       assert.equal(spoken[index]?.text, expected);
     }
-    spoken[2].onend();
+    spoken[4].onend();
     await new Promise(resolve => setTimeout(resolve, 275));
-    now += 4000;
-    browser.S[0].p = 20;
-    matchTick();
-    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
-    assert.equal(spoken[3]?.voice, commentatorVoice);
+    browser.S[0].p = 90;
+    intervals.forEach(interval => interval.callback());
+    assert.equal(browser.window.getVoiceMonitorState().current, '');
+    assert.equal(spoken.length, 5);
 
     browser.window.liveEventMonitor.receive({ entry: {
       type: 'chat', displayName: 'Interrupt Fan', username: 'interrupt-fan', content: 'Hola'
     } });
-    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'commentator');
-    assert.equal(browser.window.getVoiceMonitorState().queue.some(item => item.id === 'chat' && item.role === 'notifications'), true);
-    assert.equal(spoken[4], undefined);
-    spoken[3].onend();
+    assert.equal(browser.window.getVoiceMonitorState().currentRole, 'notifications');
+    browser.window.liveEventMonitor.receive({ entry: {
+      type: 'follow', displayName: 'Action Fan', username: 'action-fan'
+    } });
+    assert.equal(browser.window.getVoiceMonitorState().queue.some(item => item.id === 'action' && item.role === 'notifications'), true);
+    assert.equal(spoken[5]?.text, 'Interrupt Fan dice: Hola');
+    assert.equal(spoken[6], undefined);
+    spoken[5].onend();
     await new Promise(resolve => setTimeout(resolve, 275));
-    assert.equal(spoken[4]?.voice, notificationVoice);
-    spoken[4].onend();
+    assert.equal(spoken[6]?.text, 'Gracias Action Fan por seguirnos');
+    spoken[6].onend();
 
     assert.deepEqual(
       JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().levels
         .slice()
         .sort((a, b) => a.priority - b.priority)
         .map(level => [level.id, level.priority]))),
-      [['turbo', -1], ['gift', 0], ['move', 1], ['chat', 2], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4]]
+      [['gift', 0], ['move', 1], ['chat', 2], ['welcome', 3], ['action', 3], ['match', 4]]
     );
     const enabled = Object.fromEntries(browser.window.getVoiceMonitorState().levels.map(level => [level.id, level.enabled]));
-    assert.equal(enabled.welcome, false);
-    assert.equal(enabled.action, false);
+    assert.equal(enabled.welcome, true);
+    assert.equal(enabled.action, true);
   } finally {
     controller.abort();
     if (reader) void reader.cancel().catch(() => {});
@@ -1304,7 +1294,7 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     assert.ok(Object.values(defaultConfig.enabledLevels).length > 0);
     for (const level of ['gift', 'move', 'chat', 'match']) assert.equal(defaultConfig.enabledLevels[level], true);
     assert.equal(defaultConfig.enabledLevels.support, undefined);
-    for (const level of ['welcome', 'action']) assert.equal(defaultConfig.enabledLevels[level], false);
+    for (const level of ['welcome', 'action']) assert.equal(defaultConfig.enabledLevels[level], true);
     const deniedOverlayToggle = await fetch(`${baseUrl}/api/overlay/don-tortu`, {
       method: 'POST',
       headers: { Origin: baseUrl }
@@ -1359,11 +1349,11 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     const savedConfig = await saved.json();
     assert.equal(savedConfig.repeatCooldownMinutes, 5);
     assert.equal(savedConfig.donTortuEnabled, false);
-    assert.equal(savedConfig.enabledLevels.gift, false);
-    assert.equal(savedConfig.enabledLevels.chat, false);
+    assert.equal(savedConfig.enabledLevels.gift, true);
+    assert.equal(savedConfig.enabledLevels.chat, true);
     assert.equal(savedConfig.enabledLevels.move, true);
-    assert.equal(savedConfig.enabledLevels.welcome, false);
-    assert.equal(savedConfig.enabledLevels.action, false);
+    assert.equal(savedConfig.enabledLevels.welcome, true);
+    assert.equal(savedConfig.enabledLevels.action, true);
     const enabled = await fetch(`${baseUrl}/api/admin/voice-config`, {
       method: 'POST',
       headers,
@@ -1381,7 +1371,7 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     const overlayVoice = await overlayConfig.json();
     assert.equal(overlayVoice.repeatCooldownMinutes, 5);
     assert.equal(overlayVoice.donTortuEnabled, true);
-    assert.equal(overlayVoice.enabledLevels.gift, false);
+    assert.equal(overlayVoice.enabledLevels.gift, true);
     const toolsResponse = await fetch(`${baseUrl}/api/game-tools/events`);
     const toolsReader = toolsResponse.body.getReader();
     const toolsDecoder = new TextDecoder();
@@ -1392,7 +1382,7 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
       toolsFrames += toolsDecoder.decode(value, { stream: true });
     }
     assert.match(toolsFrames, /"donTortuEnabled":true/);
-    assert.match(toolsFrames, /"gift":false/);
+    assert.match(toolsFrames, /"gift":true/);
     await toolsReader.cancel();
   } finally {
     if (hadPreviousState) {
@@ -1789,10 +1779,10 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.doesNotThrow(() => new Function(script));
     assert.match(html, /id="eventList"/);
     assert.match(html, /id="clearEvents"/);
-    assert.match(html, /id="donTortuToggle"/);
-    assert.match(html, /\$\('#voiceToggle'\)\.onclick=.*?;\s*loadVoice\(\);/);
-    assert.doesNotMatch(overlay, /tortuToggle\.id='donTortuOverlayToggle'/);
+    assert.doesNotMatch(html, /Voz en off|data-unit="voz"|id="donTortuToggle"/i);
+    assert.match(overlay, /id="voiceToggle"/);
     assert.match(overlay, /function setDonTortuEnabled\(enabled\)/);
+    assert.match(overlay, /fetch\('\/api\/overlay\/don-tortu'/);
     assert.match(html, /id="applyEventFilters"/);
     assert.match(html, /\.event-row\[hidden\]\{display:none\}/);
     assert.match(html, /id="copyEvents"/);
@@ -1954,7 +1944,7 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     filter();
     assert.equal(eventEmpty.hidden, false);
     assert.match(eventEmpty.textContent, /No hay eventos/);
-    assert.match(html, /<button type="button" class="active" data-unit="usuarios">Usuarios<\/button><button type="button" data-unit="voz">Voz en off<\/button><button type="button" data-unit="honor">Honor<\/button><button type="button" data-unit="eventos">Eventos<\/button>/);
+    assert.match(html, /<button type="button" class="active" data-unit="usuarios">Usuarios<\/button><button type="button" data-unit="honor">Honor<\/button><button type="button" data-unit="eventos">Eventos<\/button>/);
     const userPanelIndex = html.indexOf('<section class="panel business-panel" data-units="usuarios">');
     const honorPanelIndex = html.indexOf('<section class="panel business-panel" data-units="honor">');
     const eventsPanelIndex = html.indexOf('<section class="panel business-panel" data-units="eventos">');
@@ -1972,9 +1962,10 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.match(script, /if\(selected\)usernameInput\.value=selected/);
     assert.match(script, /savedUsernameSelect\.addEventListener\('change',fillUsernameFromSaved\)/);
     assert.match(script, /savedUsernameSelect\.addEventListener\('input',fillUsernameFromSaved\)/);
-    for (const unit of ['eventos', 'usuarios', 'regalos', 'torneos', 'estadisticas', 'motor', 'turbo-regalos', 'voz', 'honor', 'acciones', 'logs']) {
+    for (const unit of ['eventos', 'usuarios', 'regalos', 'torneos', 'estadisticas', 'motor', 'turbo-regalos', 'honor', 'acciones', 'logs']) {
       assert.match(html, new RegExp(`data-unit="${unit}"`));
     }
+    assert.doesNotMatch(html, /data-unit="voz"|Voz en off/i);
     assert.doesNotMatch(html, /data-unit="(?:equipos|turbo-equipos)"/);
     assert.match(html, /id="serverLogs"/);
     assert.match(html, /Logs técnicos/);
@@ -1983,17 +1974,8 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.match(script, /\/api\/admin\/diagnostic-mode/);
     const usersPanel = html.match(/<section class="panel business-panel" data-units="usuarios">([\s\S]*?)<\/section>/)?.[1];
     assert.ok(usersPanel);
-    assert.match(usersPanel, /id="donTortuToggle"[^>]+class="don-tortu-toggle off"/);
-    assert.match(usersPanel, /aria-pressed="false" aria-label="Don Tortu desactivado" disabled>Don Tortu: DESACTIVADO/);
-    assert.match(script, /admin\('\/api\/admin\/voice-config',\{donTortuEnabled:!donTortuEnabled\}\)/);
-    assert.match(script, /classList\.toggle\('on',donTortuEnabled\)/);
-    assert.match(script, /classList\.toggle\('off',!donTortuEnabled\)/);
-    assert.match(html, /don-tortu-toggle\.off\{background:#a8323c\}/);
-    assert.match(html, /don-tortu-toggle\.on\{background:#238447\}/);
     assert.match(readFileSync(new URL('./server.js', import.meta.url), 'utf8'), /TortuWorld v\$\{PACKAGE_VERSION\} escuchando/);
-    const voicePanel = html.match(/<section class="panel business-panel" data-units="voz">([\s\S]*?)<\/section>/)?.[1];
-    assert.ok(voicePanel);
-    assert.doesNotMatch(voicePanel, /donTortuEnabled/);
+    assert.doesNotMatch(usersPanel, /donTortuEnabled|voice-config/i);
     assert.match(overlay, /id="donTortuAvatar"[^>]+hidden/);
     assert.match(overlay, /source\.addEventListener\('diagnostic-mode'/);
     const vsPanel = [...html.matchAll(/<section class="panel business-panel" data-units="torneos">([\s\S]*?)<\/section>/g)]
@@ -2008,7 +1990,7 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     const teamTurboPanel = [...html.matchAll(/<section class="panel business-panel" data-units="torneos">([\s\S]*?)<\/section>/g)]
       .map(match => match[1]).find(panel => panel.includes('id="teamTelemetry"'));
     assert.ok(teamTurboPanel);
-    assert.match(teamTurboPanel, /Avance del turbo por taps/);
+    assert.match(teamTurboPanel, /Avance por cada límite de taps/);
     assert.match(script, /dataset\.vsPopularKey=duel\.k/);
     assert.match(script, /unit==='torneos'\)\{loadVsConfig\(\);loadTeamCatalog\(\)\}/);
     assert.doesNotMatch(script, /unit==='equipos'/);
@@ -2460,15 +2442,34 @@ test('a late TikTok avatar travels through SSE and appears on the existing overl
   }
 });
 
-test('raw TikTok likes pass the frontend statistics and per-team tap counter', () => {
+test('tap progress milestone displays META on both team counters', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const metaPopSource = html.match(/function metaPop\(s,n\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(metaPopSource);
+  const context = {
+    document: { createElement: () => ({}) },
+    setTimeout: () => {}
+  };
+  runInNewContext(`
+    ${metaPopSource}
+    const labels=[];
+    [0,1].forEach(()=>{const h={appendChild(node){labels.push(node.textContent)}};metaPop({h},45)});
+    globalThis.labels=labels;
+  `, context);
+  assert.deepEqual(Array.from(context.labels), ['🎯 META 45', '🎯 META 45']);
+});
+
+test('raw TikTok likes advance directly at the tap limit without activating tap turbo', () => {
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
   const policy = browser.window.TORTUWORLD_ACTIVITY_POLICY;
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const entryHandler = html.match(/function handleLiveEntry\(entry\)\{[\s\S]*?\n\}(?=\n\/\* Pinta el estado de conexion)/)?.[0];
+  const tapAdvanceHandler = html.match(/function advanceForTapStep\(t,steps\)\{[\s\S]*?\n\}/)?.[0];
   const tapHandler = html.match(/function heartAdd\(t,n\)\{[\s\S]*?\n\}/)?.[0];
   const statisticsHandler = html.match(/const _hleSt=handleLiveEntry;\nhandleLiveEntry=function\(e\)\{[\s\S]*?\n\};(?=\n\/\* ===== MEDICIÓN DE ACTIVIDAD)/)?.[0];
   assert.ok(entryHandler);
+  assert.ok(tapAdvanceHandler);
   assert.ok(tapHandler);
   assert.ok(statisticsHandler);
 
@@ -2484,26 +2485,28 @@ test('raw TikTok likes pass the frontend statistics and per-team tap counter', (
     const TAP_POLICY = window.TORTUWORLD_ACTIVITY_POLICY;
     const T = [{id:'team-0'}, {id:'team-1'}];
     let HEART_N = 45;
-    const HEART_TURBO_MS = 7000, HEART_TURBO_PROGRESS = 20, HEART_TURBO_PPS = 20 / 7;
+    const HEART_TURBO_PROGRESS = 20;
     const heart = [0, 0];
+    const S = [{p:0}, {p:0}];
     const ST = {member:0, chat:0, gift:0, like:0, follow:0, share:0};
     const teamStatistics = [0, 0], activations = [0, 0], lastChat = new Map(), picks = new Map();
     let sel = 0, over = false, lead = -1, lastInteractionAt = 0, matchInteractionCount = 0;
     const heartElement = {classList:{remove(){},add(){}}, offsetWidth:0};
     const $ = () => heartElement, tapStep = () => {}, renderHeart = () => {}, tapPop = () => {};
-    const update = () => 0, turboOn = team => { activations[team]++ }, float = () => {}, hype = () => {}, A = {sfx(){}};
+    const update = () => 0, turboOn = team => { activations[team]++ }, float = () => {}, hype = () => {}, hop = () => {}, walk = () => {}, say = () => {}, win = () => {}, A = {sfx(){}};
     const noteTeamAdvance = () => {};
     const recentChatTeam = () => -1, trackTournamentMentions = () => false, trackLaneInteraction = () => {};
     const push = () => {}, stUser = () => {}, saveTournamentProgress = () => {}, logStat = () => {}, stFmt = String;
     const DUELO = [];
     window.addTeamEventTotal = (team, count) => { if(Number.isInteger(team)) teamStatistics[team] += count };
     window.resolveSupportTeamFor = username => username === 'fan1' ? 0 : 1;
+    ${tapAdvanceHandler}
     ${tapHandler}
     window.recordLiveTap=(team,count)=>heartAdd(team,count);
     ${entryHandler}
     ${statisticsHandler}
     globalThis.processEvent = entry => handleLiveEntry(entry);
-    globalThis.snapshot = () => ({heart, teamStatistics, activations, liveStatistics:ST});
+    globalThis.snapshot = () => ({heart, progress:S.map(team=>team.p), teamStatistics, activations, liveStatistics:ST});
   `, context);
 
   const events = [
@@ -2517,7 +2520,8 @@ test('raw TikTok likes pass the frontend statistics and per-team tap counter', (
   });
   const result = JSON.parse(JSON.stringify(context.snapshot()));
   assert.deepEqual(result.heart, [5, 4]);
-  assert.deepEqual(result.activations, [1, 0]);
+  assert.deepEqual(result.progress, [20, 0]);
+  assert.deepEqual(result.activations, [0, 0]);
   assert.deepEqual(result.teamStatistics, [50, 4]);
   assert.equal(result.liveStatistics.like, 54);
   assert.equal(dedupeEvent({ msgId: 'like-event-1' }, 'like'), false);
@@ -2641,20 +2645,18 @@ test('service worker caches only the shell and bypasses live API responses', () 
 test('voice-priority response matches the overlay speech template contract', () => {
   assert.equal(voicePriority.repeatCooldownMinutes, 1);
   const levels = Object.fromEntries(voicePriority.levels.map(level => [level.id, level]));
-  assert.match(levels.gift.say, /\{team\}/);
-  assert.match(levels.gift.say, /cuadro de honor/);
+  assert.match(levels.gift.say, /\{count\}/);
+  assert.doesNotMatch(levels.gift.say, /turbo|cuadro de honor/i);
   assert.deepEqual(Object.keys(levels.move.say).sort(), ['from', 'to']);
   assert.match(levels.chat.say, /\{text\}/);
   assert.deepEqual(Object.keys(levels.action.say).sort(), ['follow', 'like', 'share']);
-  assert.deepEqual(Object.keys(levels.match.say).sort(), ['final', 'normal', 'start', 'win']);
+  assert.deepEqual(Object.keys(levels.match.say).sort(), ['start']);
   assert.match(levels.match.say.start, /\{teamA\}/);
   assert.match(levels.match.say.start, /\{teamB\}/);
   assert.equal(levels.support, undefined);
-  assert.equal(levels.turbo.priority, -1);
-  assert.match(levels.match.say.normal, /\{leadM\}/);
-  assert.match(levels.match.say.normal, /\{otherM\}/);
+  assert.equal(levels.turbo, undefined);
   assert.match(levels.welcome.say, /\{user\}/);
-  assert.deepEqual(['turbo', 'gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [-1, 0, 1, 2, 3, 3, 4]);
+  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4]);
   assert.equal(levels.gift.ttlMs, 0);
   assert.equal(levels.gift.max, 0);
 });
