@@ -1988,7 +1988,7 @@ test('overlay displays package.json version and uses it in deployment signature'
     const packageVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
     const pageResponse = await fetch(`${baseUrl}/`);
     const page = await pageResponse.text();
-    assert.match(page, new RegExp(`aria-label="Versión ${packageVersion}">v${packageVersion}`));
+    assert.match(page, new RegExp(`aria-label="Versión ${packageVersion}">${packageVersion}`));
 
     const source = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8')
       .replaceAll('__TORTUWORLD_PACKAGE_VERSION__', packageVersion);
@@ -2010,8 +2010,9 @@ test('gift counter emulates a rose locally and HonorBoard receives live catalog 
   assert.match(html, /emulated:true/);
   assert.match(html, /gift-config-update/);
   assert.match(html, /window\.HonorBoard\.setTurbo\(settings\)/);
-  assert.match(html, /\.overlay-version\{[^}]*bottom:calc\(var\(--sb,0px\) \+ 22px\)/);
-  assert.match(html, /<span class="overlay-version"[^>]*>v__TORTUWORLD_PACKAGE_VERSION__<\/span><span class="event-rate" id="eventRate"/);
+  assert.match(html, /<span class="overlay-version"[^>]*>__TORTUWORLD_PACKAGE_VERSION__<\/span><span class="event-rate" id="eventRate"/);
+  assert.match(html, /const version=document\.querySelector\('\.overlay-version'\);if\(version&&clock\)clock\.appendChild\(version\)/);
+  assert.match(html, /#cronoRegalos \.overlay-version\{[^}]*position:static[^}]*display:inline-flex/);
   assert.match(html, /\.event-rate\{[^}]*bottom:calc\(var\(--sb,0px\) \+ 4px\)/);
   assert.match(html, /window\.vozPrioridad\.clearLegacy\(\)/);
 });

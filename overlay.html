@@ -830,7 +830,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- Monitor de unidades de negocio. Se mantiene el panel visual existente del overlay. -->
 <section id="stp" hidden role="dialog" aria-label="Monitor por unidad de negocio"><header><b>🐢 Monitor LIVE</b><span><button data-reset>↺ Reiniciar copas</button> <button data-close aria-label="Cerrar">✕</button></span></header><nav aria-label="Unidades de negocio"><button data-tab="eventos" title="Eventos">⚡ Eventos</button><button data-tab="usuarios" title="Usuarios">👤 Usuarios</button><button data-tab="voz" title="Voz en off y narrador">♫ Voz</button><button data-tab="regalos" title="Regalos">🎁 Regalos</button><button data-tab="equipos" title="Equipos">🐢 Equipos</button><button data-tab="torneos" title="Torneos">🏆 Torneos</button><button data-tab="estadisticas" title="Estadísticas">📊 Estad.</button><button data-tab="motor" title="Motor tiempo real">⚙ Motor</button><button data-tab="turbo-equipos" title="Turbo contador equipos">⚡ Turbo eq.</button><button data-tab="turbo-regalos" title="Turbo regalos">🎁 Turbo reg.</button><button data-tab="honor" title="Cuadro de honor">🥇 Honor</button><button data-tab="acciones" title="CTAs y acciones">🛠 Acciones</button></nav><div class="stb"></div></section>
-<span class="overlay-version" aria-label="Versión __TORTUWORLD_PACKAGE_VERSION__">v__TORTUWORLD_PACKAGE_VERSION__</span><span class="event-rate" id="eventRate" aria-label="Eventos recibidos por minuto" title="Eventos recibidos en el último minuto">0</span>
+<span class="overlay-version" aria-label="Versión __TORTUWORLD_PACKAGE_VERSION__">__TORTUWORLD_PACKAGE_VERSION__</span><span class="event-rate" id="eventRate" aria-label="Eventos recibidos por minuto" title="Eventos recibidos en el último minuto">0</span>
 </main>
 <script>
 /* ############ SECCION 1: MOTOR DEL JUEGO (datos, carriles, puntos, conexion SSE, estadisticas) ############ */
@@ -5886,10 +5886,12 @@ schedule();
 /* contador de regalos junto al cronometro */
 #cronoRegalos #giftCounter{position:static!important;flex:none;width:auto;min-width:42px;height:26px;min-height:0;padding:0 8px;border-radius:7px;pointer-events:auto}
 #cronoRegalos #giftCounter span{font-size:15px}
-/* ocultos: barra de herramientas (sus botones siguen en el DOM y responden a los comandos remotos), eventos por minuto y version */
-#topbar .foot,.event-rate,.overlay-version{display:none!important}
+/* ocultos: barra de herramientas (sus botones siguen en el DOM y responden a los comandos remotos) y eventos por minuto */
+#topbar .foot,.event-rate{display:none!important}
 /* lineas blancas de la pista: solo cada 5 metros */
 .route-guide:not([data-meter$="5"]):not([data-meter$="0"]){display:none}
+/* version numerica junto al contador pequeño de regalos */
+#cronoRegalos .overlay-version{position:static;left:auto;bottom:auto;z-index:auto;display:inline-flex;flex:none;padding:0;border:0;border-radius:0;background:none;color:rgba(255,255,255,.82);font-size:9px;font-weight:800;letter-spacing:0;line-height:1;white-space:nowrap}
 /* usuario conectado: solo la inicial, dentro de las estadisticas */
 #evs .evUser{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#16a34a;border:1.5px solid #fff;color:#fff;font:900 12px/1 Inter,sans-serif;text-shadow:0 1px 1px #000}
 #evs .evUser[hidden]{display:none}
@@ -5902,6 +5904,7 @@ schedule();
  let bar=document.getElementById('topbar');
  if(!bar){bar=document.createElement('div');bar.id='topbar';board.after(bar)}
  const gift=document.getElementById('giftCounter');if(gift&&clock)clock.appendChild(gift);
+ const version=document.querySelector('.overlay-version');if(version&&clock)clock.appendChild(version);
  [evs,foot,clock].forEach(el=>{if(el&&el.parentElement!==bar)bar.appendChild(el)});
  /* Don Tortu visible salvo que la config guardada de voz lo desactive; el backend sigue mandando via setDonTortuEnabled */
  const dt=document.getElementById('donTortuAvatar');
