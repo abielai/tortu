@@ -53,7 +53,6 @@ export default {
         final: '¡{lead} está a {left} metros de la meta!',
         win: '¡Gana {lead}! Llegó a los {track} metros.'
       }
-    },
-    { id: 'support', priority: 5, ttlMs: 30000, max: 1, say: 'Envía tap tap para apoyar a tu equipo.' }
+    }
   ]
 };

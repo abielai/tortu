@@ -183,7 +183,7 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
   assert.equal(sandbox.giftSpeechGeneration, 2);
 });
 
-test('race starts announce both teams and queue tap-tap support in the second voice', () => {
+test('race starts announce both teams without tap-tap support narration', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="voz-prioridad-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
@@ -213,8 +213,8 @@ test('race starts announce both teams and queue tap-tap support in the second vo
   };
   runInNewContext(script, browser);
   assert.match(spoken[0].text, /Olimpia y Cerro/);
-  assert.equal(browser.window.getVoiceMonitorState().queue.find(item => item.id === 'support')?.role, 'notifications');
-  assert.equal(browser.window.getVoiceMonitorState().queue.find(item => item.id === 'support')?.priority, 5);
+  assert.equal(spoken.some(item => /tap[- ]tap|apoyar a tu equipo/i.test(item.text)), false);
+  assert.equal(browser.window.getVoiceMonitorState().levels.some(level => level.id === 'support'), false);
 });
 
 test('last donors persist by team, render without gift details, and survive race reset', () => {
@@ -498,7 +498,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
         .slice()
         .sort((a, b) => a.priority - b.priority)
         .map(level => [level.id, level.priority]))),
-      [['gift', 0], ['move', 1], ['chat', 2], ['turbo', 3], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4], ['support', 5]]
+      [['gift', 0], ['move', 1], ['chat', 2], ['turbo', 3], ['action', 3], ['featured', 3], ['welcome', 3], ['match', 4]]
     );
     const enabled = Object.fromEntries(browser.window.getVoiceMonitorState().levels.map(level => [level.id, level.enabled]));
     assert.equal(enabled.welcome, false);
@@ -1153,7 +1153,8 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     assert.equal(defaultConfig.repeatCooldownMinutes, 1);
     assert.equal(defaultConfig.donTortuEnabled, true);
     assert.ok(Object.values(defaultConfig.enabledLevels).length > 0);
-    for (const level of ['gift', 'move', 'chat', 'match', 'support']) assert.equal(defaultConfig.enabledLevels[level], true);
+    for (const level of ['gift', 'move', 'chat', 'match']) assert.equal(defaultConfig.enabledLevels[level], true);
+    assert.equal(defaultConfig.enabledLevels.support, undefined);
     for (const level of ['welcome', 'action']) assert.equal(defaultConfig.enabledLevels[level], false);
     const deniedOverlayToggle = await fetch(`${baseUrl}/api/overlay/don-tortu`, {
       method: 'POST',
@@ -2383,12 +2384,11 @@ test('voice-priority response matches the overlay speech template contract', () 
   assert.deepEqual(Object.keys(levels.match.say).sort(), ['final', 'normal', 'start', 'win']);
   assert.match(levels.match.say.start, /\{teamA\}/);
   assert.match(levels.match.say.start, /\{teamB\}/);
-  assert.match(levels.support.say, /tap tap/);
-  assert.equal(levels.support.priority, 5);
+  assert.equal(levels.support, undefined);
   assert.match(levels.match.say.normal, /\{leadM\}/);
   assert.match(levels.match.say.normal, /\{otherM\}/);
   assert.match(levels.welcome.say, /\{user\}/);
-  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match', 'support'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4, 5]);
+  assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4]);
   assert.equal(levels.gift.ttlMs, 0);
   assert.equal(levels.gift.max, 0);
 });

@@ -5397,8 +5397,7 @@ const DEF_LEVELS=[
  {id:'move',priority:1,ttlMs:20000,max:8,interrupt:true,say:{to:'{user} se une a {team}',from:'{user} cambió de {from} a {team}'}},
  {id:'turbo',priority:3,ttlMs:12000,max:1,say:'¡Turbo para el equipo {team}!'},
  {id:'featured',priority:3,ttlMs:30000,max:1,say:'Damos la bienvenida al hincha destacado del club {team}, usuario {user}. {leader}'},
- {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'},
- {id:'support',priority:5,ttlMs:30000,max:1,say:'Envía tap tap para apoyar a tu equipo.'}
+ {id:'welcome',priority:3,ttlMs:25000,max:6,say:'Bienvenido {user}'}
 ];
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  DEF_LEVELS[0],DEF_LEVELS[1],
@@ -5410,7 +5409,7 @@ fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.is
 function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)})}
 ensureLevels();
 function normalizeEnabledLevels(source){
- const enabledByDefault=new Set(['gift','move','chat','turbo','featured','match','support']);
+ const enabledByDefault=new Set(['gift','move','chat','turbo','featured','match']);
  return Object.fromEntries(TB.levels.map(level=>[
   level.id,
   typeof(source&&source[level.id])==='boolean'?source[level.id]:enabledByDefault.has(level.id)
@@ -5447,7 +5446,7 @@ window.addEventListener('voice-config-update',event=>{
  }
  if(typeof config.donTortuEnabled==='boolean')window.setDonTortuEnabled(config.donTortuEnabled);
 });
-const voiceRole=id=>['gift','move','chat','support'].includes(id)?'notifications':'commentator';
+const voiceRole=id=>['gift','move','chat'].includes(id)?'notifications':'commentator';
 window.getVoiceMonitorState=()=>({enabled:!mute(),trackMeters:TRACK(),interactionCountLastMinute:pruneInteractions(),spokenMilestones:Array.from(spokenMilestones),phraseCooldownMs:phraseCooldownMs(),recentPhrases:phraseSnapshot(),current:cur?cur.text:'',currentRole:cur?voiceRole(cur.id):'',queue:Q.map(item=>({id:item.id,priority:item.p,text:item.text,role:voiceRole(item.id)})),levels:TB.levels.map(level=>({id:level.id,priority:level.priority,interrupt:!!level.interrupt,enabled:levelEnabled(level.id)}))});
 const mute=()=>safe(()=>P.vo)===0||safe(()=>P.vo)===false;
 const pickVoice=()=>{const v=SS.getVoices?SS.getVoices():[];const es=v.filter(x=>/^es/i.test(x.lang));return es.find(x=>/google/i.test(x.name))||es.find(x=>/es-(US|MX|419)/i.test(x.lang))||es[0]||null};
@@ -5604,8 +5603,6 @@ if(typeof _cr==='function')M.completeRound=function(){const r=_cr.apply(this,arg
 function announceRace(){
  const start=LV('match').say&&LV('match').say.start||'Arranca la carrera entre {teamA} y {teamB}. La meta está a {track} metros.';
  say('match',fill(start,{teamA:nm(0),teamB:nm(1),track:TRACK()}),false,true);
- const support=LV('support').say||'Envía tap tap para apoyar a tu equipo.';
- say('support',EN()?'Send tap-tap to support your team.':support,false,true);
 }
 if(typeof reset==='function'){const _r=reset;reset=function(){const r=_r.apply(this,arguments);
  clearQueue();side.clear();lastEv=0;interactionTimes.length=0;spokenMilestones.clear();announceRace();return r}}
