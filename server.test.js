@@ -11,8 +11,8 @@ test('live event counters count events, not weighted interaction points', () => 
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
   const policy = browser.window.TORTUWORLD_ACTIVITY_POLICY;
-  assert.equal(policy.HEART_MAX, 50);
-  assert.equal(policy.HEART_START, 50);
+  assert.equal(policy.HEART_MAX, 45);
+  assert.equal(policy.HEART_START, 45);
   assert.equal(policy.HEART_STEP, 0);
   assert.equal(policy.eventCountDelta('chat', 8), 1);
   assert.equal(policy.eventCountDelta('follow', 8), 1);
@@ -24,7 +24,7 @@ test('live event counters count events, not weighted interaction points', () => 
   assert.equal(policy.statEventDelta('gift', 3), 30);
 });
 
-test('tap limit stays fixed at 50 despite track progress and manual adjustment commands', () => {
+test('tap limit stays fixed at 45 per team despite track progress and manual adjustment commands', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const baseSource = html.match(/const heartBase=\(\)=>[^\n]+/)?.[0];
   const syncSource = html.match(/function syncHeartLimit\(\)\{[\s\S]*?\n\}/)?.[0];
@@ -35,7 +35,7 @@ test('tap limit stays fixed at 50 despite track progress and manual adjustment c
 
   const context = {};
   runInNewContext(`
-    const HEART_START=50, HEART_STEP=0, HEART_MAX=50;
+    const HEART_START=45, HEART_STEP=0, HEART_MAX=45;
     const S=[{p:100},{p:100}], T=[{},{}], heart=[0,0];
     let HEART_N=HEART_START, over=false;
     const renderHeart=()=>{}, heartAdd=()=>{}, toast=()=>{};
@@ -48,8 +48,8 @@ test('tap limit stays fixed at 50 despite track progress and manual adjustment c
     globalThis.manualLimit=HEART_N;
   `, context);
 
-  assert.equal(context.automaticLimit, 50);
-  assert.equal(context.manualLimit, 50);
+  assert.equal(context.automaticLimit, 45);
+  assert.equal(context.manualLimit, 45);
 });
 
 test('idle visual advance waits 15 seconds, alternates teams at two meters per second, and resets per race', () => {
@@ -1916,8 +1916,8 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
       stats: { like: 24, chat: 2 },
       turbo: { tapProgress: 20, tapDurationMs: 7000, giftProgress: 6, giftDurationMs: 15000 },
       teams: [
-        { id: 'ol', name: 'Olimpia', progress: 12.5, taps: 4, tapLimit: 50, eventTotal: 7, turboMs: 3000, giftTurboMs: 0 },
-        { id: 'cp', name: 'Cerro Porteño', progress: 9, taps: 0, tapLimit: 50, eventTotal: 2, turboMs: 0, giftTurboMs: 1000 }
+        { id: 'ol', name: 'Olimpia', progress: 12.5, taps: 4, tapLimit: 45, eventTotal: 7, turboMs: 3000, giftTurboMs: 0 },
+        { id: 'cp', name: 'Cerro Porteño', progress: 9, taps: 0, tapLimit: 45, eventTotal: 2, turboMs: 0, giftTurboMs: 1000 }
       ]
     };
     const overlayStream = await fetch(`${baseUrl}/api/events`);
@@ -2330,7 +2330,7 @@ test('raw TikTok likes pass the frontend statistics and per-team tap counter', (
   runInNewContext(`
     const TAP_POLICY = window.TORTUWORLD_ACTIVITY_POLICY;
     const T = [{id:'team-0'}, {id:'team-1'}];
-    let HEART_N = 50;
+    let HEART_N = 45;
     const HEART_TURBO_MS = 7000, HEART_TURBO_PROGRESS = 20, HEART_TURBO_PPS = 20 / 7;
     const heart = [0, 0];
     const ST = {member:0, chat:0, gift:0, like:0, follow:0, share:0};
@@ -2363,7 +2363,7 @@ test('raw TikTok likes pass the frontend statistics and per-team tap counter', (
     if (!dedupeEvent(event, 'like')) context.processEvent(normalizeTikTokEvent('like', event));
   });
   const result = JSON.parse(JSON.stringify(context.snapshot()));
-  assert.deepEqual(result.heart, [0, 4]);
+  assert.deepEqual(result.heart, [5, 4]);
   assert.deepEqual(result.activations, [1, 0]);
   assert.deepEqual(result.teamStatistics, [50, 4]);
   assert.equal(result.liveStatistics.like, 54);

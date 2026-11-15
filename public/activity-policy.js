@@ -21,9 +21,9 @@
     gift: 10
   };
   var policy = {
-    HEART_START: 50,
+    HEART_START: 45,
     HEART_STEP: 0,
-    HEART_MAX: 50,
+    HEART_MAX: 45,
     HEART_TURBO_MS: 7000,
     GIFT_TURBO_MS: 15000,
     GIFT_TURBO_PROGRESS: 6,
