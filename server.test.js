@@ -227,34 +227,47 @@ test('last donors persist by team, render without gift details, and survive race
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const script = html.match(/<script id="donor-meta-js">([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script);
+  assert.match(html, /<text class="meta-label"[^>]*>META<\/text>/);
   const savedStates = {};
   const markers = [null, null];
+  const honorBoxes = [null, null];
   const lanes = { classList: { contains: () => false } };
   const sv = [0, 1].map(index => ({
     children: [],
     querySelector(selector) { return selector === '.donor-marker' ? markers[index] : null; },
     appendChild(child) { this.children.push(child); if (child.className === 'donor-marker') markers[index] = child; }
   }));
+  const laneNodes = [0, 1].map(index => ({
+    querySelector(selector) { return selector === '.donor-honor' ? honorBoxes[index] : null; },
+    insertBefore(child) { honorBoxes[index] = child; }
+  }));
   const makeNode = tag => ({
     tagName: tag,
     children: [],
     attrs: {},
     hidden: false,
+    classList: { add() {}, remove() {} },
     setAttribute(name, value) { this.attrs[name] = value; },
+    removeAttribute(name) { delete this.attrs[name]; },
     replaceChildren(...children) { this.children = children; },
-    appendChild(child) { this.children.push(child); }
+    appendChild(child) { this.children.push(child); },
+    append(...children) { this.children.push(...children); }
   });
   const context = {
     window: { SRV: {
       get: key => savedStates[key],
       set: (key, value) => { savedStates[key] = value; }
     } },
+    avatarUrlCache: new Map(),
     document: {
-      getElementById: id => id === 'lanes' ? lanes : id === 'sv0' ? sv[0] : id === 'sv1' ? sv[1] : null,
+      getElementById: id => id === 'lanes' ? lanes : id === 'sv0' ? sv[0] : id === 'sv1' ? sv[1] : id === 'ln0' ? laneNodes[0] : id === 'ln1' ? laneNodes[1] : null,
       createElement: makeNode
     },
     T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
-    handleLiveEntry() { context.push(0, 'gift'); },
+    handleLiveEntry(entry) {
+      context.push(0, 'gift');
+      if (entry.profilePictureUrl) context.avatarUrlCache.set(entry.username, entry.profilePictureUrl);
+    },
     push() { return true; },
     reset() { return true; },
     console,
@@ -269,8 +282,13 @@ test('last donors persist by team, render without gift details, and survive race
     giftName: 'Rosa', giftDiamonds: 1, activityCount: 2, receivedAt: '2025-01-01T00:00:00.000Z'
   });
   assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
+  assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.avatarUrl, 'https://example.test/ana.jpg');
   assert.equal(savedStates['cluss.honorLastGiftTeams'].rightTeamId, 'cp');
   assert.equal(markers[0].children[1].textContent, '@ana');
+  const honorAvatar = honorBoxes[0].children.find(child => child.className === 'dh-av');
+  assert.equal(honorAvatar.children[0].src, 'https://example.test/ana.jpg');
+  const thanks = honorBoxes[0].children.find(child => child.className === 'dh-tx').children[0];
+  assert.equal(thanks.textContent, 'Gracias @ana');
   assert.doesNotMatch(markers[0].children.map(child => child.textContent).join(' '), /Rosa|🎁/);
   context.reset();
   assert.equal(savedStates['cluss.honorLastGiftTeams'].teams.ol.username, 'ana');
@@ -1713,7 +1731,12 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     assert.match(script, /navigator\.clipboard\.writeText\(text\)/);
     assert.match(script, /row\.dataset\.eventType=entry\.type/);
     const renderEventCode = script.match(/function renderLiveEvent\(entry\)\{[\s\S]*?\n\}/)?.[0];
+    const eventDetailCode = script.match(/function eventDetail\(entry\)\{[\s\S]*?\n\}/)?.[0];
+    const eventUpdateHandlerCode = script.match(/source\.addEventListener\('update',(e=>\{[\s\S]*?\})\);/)?.[1];
     assert.ok(renderEventCode);
+    assert.ok(eventDetailCode);
+    assert.ok(eventUpdateHandlerCode);
+    const renderEventDetail = new Function(`${eventDetailCode}; return eventDetail;`)();
     const eventRowsForRender = [];
     const createElement = tagName => ({
       tagName: tagName.toUpperCase(),
@@ -1734,9 +1757,15 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
       { createElement },
       selector => selector === '#eventList' ? eventListForRender : null,
       { gift: 'Regalo', chat: 'Comentario' },
-      () => 'Detalle',
+      renderEventDetail,
       () => {}
     );
+    const eventCounters = { '#eventCount': { textContent: '0' }, '#eventUnitCount': { textContent: '0' } };
+    const handleBackendUpdate = new Function(
+      'renderLiveEvent',
+      '$',
+      `let received=0; const handler=${eventUpdateHandlerCode}; return data=>{handler({data});return received};`
+    )(renderEvent, selector => eventCounters[selector]);
     const avatarEntry = normalizeTikTokEvent('gift', {
       user: {
         uniqueId: 'ana',
@@ -1755,6 +1784,45 @@ test('backend exposes business-unit buttons, renders TikTok avatar URLs, and sho
     const fallbackUser = eventRowsForRender[0].children[2];
     assert.equal(fallbackUser.children[0].className, 'event-avatar event-avatar-fallback');
     assert.equal(fallbackUser.children[0].dataset.initial, 'L');
+    const eventsResponse = await fetch(`${baseUrl}/api/events`);
+    assert.equal(eventsResponse.status, 200);
+    const eventsReader = eventsResponse.body.getReader();
+    const eventDecoder = new TextDecoder();
+    let eventBuffer = '';
+    const readEvent = async () => {
+      while (true) {
+        const boundary = eventBuffer.indexOf('\n\n');
+        if (boundary >= 0) {
+          const frame = eventBuffer.slice(0, boundary);
+          eventBuffer = eventBuffer.slice(boundary + 2);
+          const event = frame.match(/^event:\s*(.+)$/m)?.[1];
+          const data = frame.match(/^data:\s*(.+)$/m)?.[1];
+          if (data) return { event, payload: JSON.parse(data) };
+        }
+        const chunk = await eventsReader.read();
+        assert.equal(chunk.done, false, 'backend event stream stays open');
+        eventBuffer += eventDecoder.decode(chunk.value, { stream: true });
+      }
+    };
+    try {
+      assert.equal((await readEvent()).event, 'status');
+      handleTikTokEvent('chat', {
+        msgId: `backend-events-${Date.now()}`,
+        user: { uniqueId: 'backend-fan', nickname: 'Backend Fan' },
+        comment: 'Evento desde TikTok'
+      });
+      const liveEvent = await readEvent();
+      assert.equal(liveEvent.event, 'update');
+      assert.equal(liveEvent.payload.entry.type, 'chat');
+      assert.equal(handleBackendUpdate(JSON.stringify(liveEvent.payload)), 1);
+      assert.equal(eventCounters['#eventCount'].textContent, '1');
+      assert.equal(eventCounters['#eventUnitCount'].textContent, '1');
+      assert.equal(eventRowsForRender[0].dataset.eventType, 'chat');
+      assert.equal(eventRowsForRender[0].children[2].children[1].textContent, '@backend-fan · Backend Fan');
+      assert.equal(eventRowsForRender[0].children[3].textContent, 'Evento desde TikTok');
+    } finally {
+      await eventsReader.cancel();
+    }
     const submitCode = script.match(/\$\('#eventFilterForm'\)\.addEventListener\('submit',event=>\{[^}]*\}\);/)?.[0];
     assert.ok(submitCode);
     let submitHandler, filtersApplied = false, submitPrevented = false;

@@ -55,7 +55,7 @@
 
  EXCEPCION 1 (AUTORIZADA POR EL AUTOR, 2026-11-15, RIESGO ACEPTADO): cuadro de honor por equipo, arriba de la pista y
     debajo del contador, con avatar + @usuario + regalo del ULTIMO donador (datos reales ya guardados en el servidor,
-    clave cluss.honorLastGiftTeams), y la linea de llegada rotulada "HONOR" en lugar de "META". Esto va en contra del
+    clave cluss.honorLastGiftTeams), y la linea de llegada rotulada "META". Esto va en contra del
     punto B (reconocimiento publico por regalar) y puede volver a ser sancionado; el autor lo asume y usa una cuenta de
     pruebas. NO ampliar esta excepcion a promesas verbales, turbo ni ventajas por regalo.
 
@@ -537,6 +537,7 @@ body{margin:0;background:var(--page);font-family:Inter,system-ui,sans-serif;colo
 .live{background:#e11d48;border:0;border-radius:6px;padding:5px 9px;color:#fff;font:inherit;font-weight:800;box-shadow:0 0 8px #e11d48;cursor:pointer;touch-action:manipulation}
 .live.connected{background:#16a34a;box-shadow:0 0 8px #16a34a}
 .live.connecting{background:#d97706;box-shadow:0 0 8px #d97706}
+.live.reconnecting{background:#eab308;box-shadow:0 0 8px #eab308}
 .bub{position:relative;background:#f1e8d6;color:#2a2018;border-radius:10px;font-weight:800;text-align:center;line-height:1.25;box-shadow:0 2px 4px rgba(0,0,0,.4);width:100%;align-items:center;justify-content:center}
 .bub:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-7px;border:7px solid transparent;border-top-color:#f1e8d6;border-bottom:0}
 .plate{background:linear-gradient(#faf3e2,#e2d6bb);color:#2a2018;border:2px solid #6b6f78;border-radius:9px;box-shadow:0 2px 5px rgba(0,0,0,.4);font-weight:800}
@@ -1371,7 +1372,7 @@ function laneSVG(i,t){
 <rect x="7.5" y="5" width="105" height="130" rx="13" fill="url(#gt${i})"/>
 <g stroke="#1a0e05" stroke-width="1.6" opacity=".7"><path d="M36 186H110 M36 304H110 M36 421H110"/></g><g stroke="#e3b87d" stroke-width=".8" opacity=".35"><path d="M36 187.5H110 M36 305.5H110 M36 422.5H110"/></g>
 <line x1="10" y1="16" x2="110" y2="16" stroke="#f1e8d6" stroke-width="7" stroke-dasharray="7 7"/>
-<text class="meta-label" x="105" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="end" font-family="Inter,sans-serif">HONOR</text>
+<text class="meta-label" x="105" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="end" font-family="Inter,sans-serif">META</text>
 <rect x="9" y="66" width="7" height="470" rx="3.5" fill="#150a03" stroke="#e3b87d" stroke-opacity=".4" stroke-width=".6"/><rect x="9" y="66" width="7" height="470" rx="3.5" fill="url(#ga${i})" opacity=".3"/><rect id="gf${i}" x="10" y="536" width="5" height="0" rx="2.5" fill="url(#ga${i})"/><circle id="gk${i}" cx="12.5" cy="536" r="5" fill="#ffd566" stroke="#fff" stroke-width="1.5"/>
 <g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}${routeGuides}
 <g transform="translate(13 0)"><g class="tt" id="tt${i}"><g class="in" id="in${i}">
@@ -1540,7 +1541,8 @@ function setConnection(status){
  el.textContent=userLabel;
  el.title=username?stateLabel+' a '+userLabel:stateLabel;
  el.classList.toggle('connected',connected);
- el.classList.toggle('connecting',!connected&&['connecting','reconnecting'].includes(status.status));
+ el.classList.toggle('connecting',!connected&&status.status==='connecting');
+ el.classList.toggle('reconnecting',!connected&&status.status==='reconnecting');
  el.setAttribute('aria-label',(username?stateLabel+' a '+userLabel:stateLabel)+'; tocar para cambiar de usuario');
 }
 /* Conexion con el backend: eventos reales de TikTok por SSE */
@@ -3910,7 +3912,7 @@ setInterval(pinta,1500);pinta();
 #topbar .foot{flex:none}
 #topbar .foot>*{display:inline-flex!important;position:static!important;min-width:0;max-width:none!important}
 #topbar .foot>.live{min-height:30px}
-#connection{cursor:default;touch-action:auto}</style>
+#connection{cursor:pointer;touch-action:manipulation}</style>
 
 <!-- ===== NOMBRE + BANDERA + ROSITA ARRIBA: arriba de cada carril va el NOMBRE del equipo, y debajo del nombre la BANDERA y una ROSITA llamativa (prueba de CTA; es solo visual, no suma puntos: solo cuentan regalos reales). Sin titulo del torneo y sin nombre sobre la tortuga. ===== -->
 <style id="nombre-arriba">
@@ -6021,8 +6023,45 @@ schedule();
  const HONOR_BOX=true;
  const saved=window.SRV.get(STORE,{});
  const state=saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};
- if(!state.teams||typeof state.teams!=='object')state.teams={};
+ const teams={};
+ [state.teams,state.byTeam].forEach(records=>{
+  if(records&&typeof records==='object'&&!Array.isArray(records))Object.keys(records).forEach(id=>{
+   const record=records[id];if(record&&typeof record==='object'&&record.username&&!teams[id])teams[id]=record;
+  });
+ });
+ [state.left,state.right].forEach(record=>{
+  if(record&&typeof record==='object'&&record.teamId&&record.username&&!teams[record.teamId])teams[record.teamId]=record;
+ });
+ state.teams=teams;
  const https=v=>/^https:\/\//i.test(String(v||''));
+ function recordAvatar(record){
+  return [record&&record.avatarUrl,record&&record.profilePictureUrl,record&&record.profilePicture,record&&record.avatar].find(https)||'';
+ }
+ function donorAvatar(entry,username){
+  const direct=[entry.profilePictureUrl,entry.profilePicture,entry.avatarUrl,entry.avatar,entry.userImage,entry.imageUrl].find(https);
+  if(direct)return direct;
+  const key=String(username||'').toLowerCase();
+  if(typeof avatarUrlCache!=='undefined'&&avatarUrlCache&&typeof avatarUrlCache.get==='function'){
+   const cached=avatarUrlCache.get(key);if(https(cached))return cached;
+  }
+  const known=window.__known&&window.__known.get(key);
+  return known&&https(known.url)?known.url:'';
+ }
+ function showAvatar(target,record,logFailure){
+  const url=recordAvatar(record),initial=String(record.username||record.displayName||'?').replace(/^@+/,'').trim().charAt(0).toUpperCase();
+  if(!url){target.textContent=initial;return}
+  const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.decoding='async';
+  let retries=0;
+  image.onerror=()=>{
+   if(retries<2){
+    retries++;setTimeout(()=>{if(image.isConnected===false)return;image.removeAttribute('src');image.src=url},2500*retries);
+    return;
+   }
+   image.remove();target.textContent=initial;
+   if(logFailure)console.warn('Honor: no cargo la foto de @'+record.username+' (¿firma vencida o bloqueada por el CDN?)');
+  };
+  target.appendChild(image);image.src=url;
+ }
  /* Se guarda en la forma del servidor (byTeam + left/right); misma clave, mismo PUT */
  function save(){window.SRV.set(STORE,state)}
  function saveSides(){
@@ -6040,14 +6079,7 @@ schedule();
   if(record){
    const avatar=document.createElement('span');avatar.className='avatar';
    const username=document.createElement('span');username.className='username';username.textContent='@'+String(record.username||'').replace(/^@+/,'');
-   const initial=String(record.username||record.displayName||'?').replace(/^@+/,'').trim().charAt(0).toUpperCase();
-   if(https(record.avatarUrl)){
-    const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;
-    image.onerror=()=>{image.remove();avatar.textContent=initial};
-    avatar.appendChild(image);
-   } else {
-    avatar.textContent=initial;
-   }
+   showAvatar(avatar,record,false);
    marker.appendChild(avatar);marker.appendChild(username);
    if(sv.contains&&!sv.contains(marker))sv.appendChild(marker);
    else if(!sv.contains)sv.appendChild(marker);
@@ -6063,16 +6095,9 @@ schedule();
   if(!record){box.classList.add('empty');return}
   box.classList.remove('empty');
   const av=document.createElement('span');av.className='dh-av';
-  const initial=String(record.username||record.displayName||'?').replace(/^@+/,'').trim().charAt(0).toUpperCase();
-  if(https(record.avatarUrl)){
-   const image=document.createElement('img');image.alt='';image.referrerPolicy='no-referrer';image.src=record.avatarUrl;
-   image.onerror=()=>{image.remove();av.textContent=initial;console.warn('Honor: no cargo la foto de @'+record.username+' (¿firma vencida o bloqueada por el CDN?)')};
-   av.appendChild(image);
-  } else {
-   av.textContent=initial;
-  }
+  showAvatar(av,record,true);
   const txt=document.createElement('span');txt.className='dh-tx';
-  const un=document.createElement('b');un.className='dh-un';un.textContent='@'+String(record.username||'').replace(/^@+/,'');
+  const un=document.createElement('b');un.className='dh-un';un.textContent='Gracias @'+String(record.username||'').replace(/^@+/,'');
   const gf=document.createElement('i');gf.className='dh-gift';gf.textContent='';
   txt.append(un,gf);box.append(av,txt);
   box.title='Honor · '+(team&&team.n||team&&team.id)+': @'+String(record.username||'');
@@ -6083,15 +6108,22 @@ schedule();
   const team=T[i];if(!team||!e)return;
   const username=String(e.username||'').trim().replace(/^@+/,'');if(!username)return;
   state.teams[team.id]={teamId:team.id,teamName:team.n,username,displayName:String(e.displayName||username),
-   avatarUrl:[e.profilePictureUrl,e.profilePicture,e.avatarUrl,e.avatar,e.userImage,e.imageUrl].find(https)||'',
+   avatarUrl:donorAvatar(e,username),
    giftName:String(e.giftName||e.gift_name||e.gift||''),giftDiamonds:Number(e.giftDiamonds)||0,
    activityCount:Math.max(1,Math.floor(Number(e.activityCount)||1)),receivedAt:Number(e.receivedAt)||Date.now()};
   saveSides();save();render(i,true);
  }
  /* Solo guarda la atribucion del regalo que el motor asigno realmente a ese equipo. */
  let pending=null;
- if(typeof handleLiveEntry==='function'){const hle=handleLiveEntry;handleLiveEntry=function(e){pending=e&&e.type==='gift'&&!e.bot&&e.username?e:null;try{return hle.apply(this,arguments)}finally{pending=null}}}
- if(typeof push==='function'){const pu=push;push=function(i,type){const r=pu.apply(this,arguments);if(type==='gift'&&pending&&i>=0){try{remember(i,pending)}catch(error){console.error('No se pudo guardar el último donador del equipo.',error)}}return r}}
+ if(typeof handleLiveEntry==='function'){const hle=handleLiveEntry;handleLiveEntry=function(e){
+  const previous=pending,donation=e&&e.type==='gift'&&!e.bot&&e.username?{entry:e,team:-1}:null;
+  if(donation)pending=donation;
+  try{return hle.apply(this,arguments)}finally{
+   if(donation&&donation.team>=0){try{remember(donation.team,donation.entry)}catch(error){console.error('No se pudo guardar el último donador del equipo.',error)}}
+   pending=previous;
+  }
+ }}
+ if(typeof push==='function'){const pu=push;push=function(i,type){const r=pu.apply(this,arguments);if(type==='gift'&&pending&&i>=0)pending.team=i;return r}}
  if(typeof reset==='function'){const rs=reset;reset=function(){const r=rs.apply(this,arguments);renderAll();return r}}
  renderAll();
 })();
