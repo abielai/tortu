@@ -26,19 +26,23 @@ test('live event counters count events, not weighted interaction points', () => 
 
 test('tap limit stays fixed at 45 per team despite track progress and manual adjustment commands', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const limitSource = html.match(/P\.HEART_START=[^;]+;P\.HEART_STEP=[^;]+;P\.HEART_MAX=[^;]+;/)?.[0];
   const baseSource = html.match(/const heartBase=\(\)=>[^\n]+/)?.[0];
   const syncSource = html.match(/function syncHeartLimit\(\)\{[\s\S]*?\n\}/)?.[0];
   const manualSource = html.match(/function setTurboLimit\(\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(limitSource);
   assert.ok(baseSource);
   assert.ok(syncSource);
   assert.ok(manualSource);
 
   const context = {};
   runInNewContext(`
-    const HEART_START=45, HEART_STEP=0, HEART_MAX=45;
+    const P={};
+    ${limitSource}
+    const HEART_START=P.HEART_START, HEART_STEP=P.HEART_STEP, HEART_MAX=P.HEART_MAX;
     const S=[{p:100},{p:100}], T=[{},{}], heart=[0,0];
     let HEART_N=HEART_START, over=false;
-    const renderHeart=()=>{}, heartAdd=()=>{}, toast=()=>{};
+    const renderHeart=()=>{}, heartAdd=()=>{}, messages=[], toast=message=>messages.push(message);
     ${baseSource}
     ${syncSource}
     ${manualSource}
@@ -46,10 +50,12 @@ test('tap limit stays fixed at 45 per team despite track progress and manual adj
     globalThis.automaticLimit=HEART_N;
     setTurboLimit(10);
     globalThis.manualLimit=HEART_N;
+    globalThis.toastMessage=messages[0];
   `, context);
 
   assert.equal(context.automaticLimit, 45);
   assert.equal(context.manualLimit, 45);
+  assert.equal(context.toastMessage, 'Límite de turbo fijo en 45 taps');
 });
 
 test('idle visual advance waits 15 seconds, alternates teams at two meters per second, and resets per race', () => {
