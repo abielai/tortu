@@ -1281,7 +1281,12 @@ function flag(k,x,y,w,h){
  return [0,1,2,3].map(j=>`<rect x="${x+w*j/4}" y="${y}" width="${w/4+.5}" height="${h}" fill="${c[j%2]}"/>`).join('');
 }
 /* Dibuja un carril: relieve, bandera, meta y tortuga (SVG). Solo grafico, sin logica de juego */
-function laneSVG(i,t){return `<svg viewBox="0 0 120 588" preserveAspectRatio="none" role="img" aria-label="Ruta ${t.n} con relieve"><defs>
+function laneSVG(i,t){
+ const distanceMarks=Array.from({length:9},(_,index)=>{
+  const meters=(index+1)*10,y=536-meters*4.7;
+  return `<line class="distance-tick" data-meter="${meters}" x1="7" y1="${y}" x2="18" y2="${y}" stroke="#f1e8d6" stroke-width="1.2" opacity=".8"/>`;
+ }).join('');
+ return `<svg viewBox="0 0 120 588" preserveAspectRatio="none" role="img" aria-label="Ruta ${t.n} con relieve"><defs>
 <filter id="m${i}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".018 .05" numOctaves="4" seed="${i+1}"/><feColorMatrix values="0 0 0 0 .52 0 0 0 0 .46 0 0 0 0 .4 2.4 0 0 0 -.95"/></filter>
 <linearGradient id="h${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf8"/><stop offset="1" stop-color="#cdbc9f"/></linearGradient>
 <linearGradient id="ga${i}" gradientUnits="userSpaceOnUse" x1="0" y1="536" x2="0" y2="66"><stop offset="0" stop-color="#1e6bff"/><stop offset=".3" stop-color="#2fd0e8"/><stop offset=".55" stop-color="#ffd23f"/><stop offset=".78" stop-color="#ff8a1f"/><stop offset="1" stop-color="#ff1f1f"/></linearGradient>
@@ -1298,7 +1303,7 @@ function laneSVG(i,t){return `<svg viewBox="0 0 120 588" preserveAspectRatio="no
 <line x1="10" y1="16" x2="110" y2="16" stroke="#f1e8d6" stroke-width="7" stroke-dasharray="7 7"/>
 <text x="60" y="36" fill="#f1e8d6" font-size="9" font-weight="800" text-anchor="middle" font-family="Inter,sans-serif">META</text>
 <rect x="9" y="66" width="7" height="470" rx="3.5" fill="#150a03" stroke="#e3b87d" stroke-opacity=".4" stroke-width=".6"/><rect x="9" y="66" width="7" height="470" rx="3.5" fill="url(#ga${i})" opacity=".3"/><rect id="gf${i}" x="10" y="536" width="5" height="0" rx="2.5" fill="url(#ga${i})"/><circle id="gk${i}" cx="12.5" cy="536" r="5" fill="#ffd566" stroke="#fff" stroke-width="1.5"/>
-<g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>
+<g font-size="9" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".4" paint-order="stroke"><text x="19" y="69" fill="#ff4d4d">100 m</text><text x="19" y="186" fill="#ff9a3d">75 m</text><text x="19" y="304" fill="#ffd23f">50 m</text><text x="19" y="421" fill="#5fd8ee">25 m</text><text x="19" y="539" fill="#4da3ff">0 m</text></g>${distanceMarks}
 <g transform="translate(13 0)"><g class="tt" id="tt${i}"><g class="in" id="in${i}">
 <ellipse cx="50" cy="528" rx="26" ry="5" fill="#000" opacity=".22"/>
 <g fill="#a8e32c" stroke="#1f3a6b" stroke-width="1.4" stroke-linejoin="round"><path d="M45 514 Q50 531 55 514Z"/><ellipse class="lg l" cx="28" cy="470" rx="7" ry="9"/><ellipse class="lg r" cx="72" cy="470" rx="7" ry="9"/><ellipse class="lg l rv" cx="31" cy="512" rx="7" ry="9"/><ellipse class="lg r rv" cx="69" cy="512" rx="7" ry="9"/><circle cx="50" cy="456" r="10.5"/></g>
@@ -1311,7 +1316,8 @@ function laneSVG(i,t){return `<svg viewBox="0 0 120 588" preserveAspectRatio="no
 <ellipse cx="60" cy="473" rx="6" ry="3" transform="rotate(-35 60 473)" fill="#fff" opacity=".4"/><polygon points="50,469.5 68,479.25 68,498.75 50,508.5 32,498.75 32,479.25" fill="none" stroke="#fff" stroke-width="3.6" stroke-linejoin="round"/><g class="shf" clip-path="url(#hx${i})">${flag(t.id,32,469.5,36,39)}</g><polygon points="50,469.5 68,479.25 68,498.75 50,508.5 32,498.75 32,479.25" fill="none" stroke="#0d1b3a" stroke-width="1.4" stroke-linejoin="round"/>
 </g>
 <path id="cw${i}" display="none" d="M36 410 L38 394 L44 401 L50 390 L56 401 L62 394 L64 410Z" fill="url(#go${i})" stroke="#8a6410" stroke-width="1.5"/>
-</g><text id="clubName${i}" x="50" y="552" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".7" paint-order="stroke">${t.n}</text></g></g><path d="M0 8Q0 0 8 0H8V630H8Q0 630 0 622Z M112 0H112Q120 0 120 8V622Q120 630 112 630H112Z" fill="#b07a45"/><path d="M8 10V620 M112 10V620" stroke="#0d0602" stroke-width="2.6" opacity=".95"/><path d="M2.5 12V618 M117.5 12V618" stroke="#e3b87d" stroke-width="1" opacity=".55"/><path d="M0 535H80" stroke="#000" stroke-width="0"/><rect x="1" y="1" width="118" height="628" rx="8" fill="none" stroke="#3f2713" stroke-width="2"/></svg>`}
+</g><text id="clubName${i}" x="50" y="552" text-anchor="middle" fill="#fff" font-size="8" font-weight="800" font-family="Inter,sans-serif" stroke="#000" stroke-width=".7" paint-order="stroke">${t.n}</text></g></g><path d="M0 8Q0 0 8 0H8V630H8Q0 630 0 622Z M112 0H112Q120 0 120 8V622Q120 630 112 630H112Z" fill="#b07a45"/><path d="M8 10V620 M112 10V620" stroke="#0d0602" stroke-width="2.6" opacity=".95"/><path d="M2.5 12V618 M117.5 12V618" stroke="#e3b87d" stroke-width="1" opacity=".55"/><path d="M0 535H80" stroke="#000" stroke-width="0"/><rect x="1" y="1" width="118" height="628" rx="8" fill="none" stroke="#3f2713" stroke-width="2"/></svg>`;
+}
 $('#lanes').innerHTML=T.map((t,i)=>`<div class="lane" id="ln${i}"><button class="hd" data-i="${i}" aria-pressed="false" aria-label="${t.n}"><svg class="fgb" width="20" height="14" viewBox="0 0 20 14" aria-hidden="true">${flag(t.id,0,0,20,14)}</svg><span class="pod"></span><svg class="crown" width="20" height="16" viewBox="0 0 20 16" aria-hidden="true"><path d="M2 14 L3 3 L7 8 L10 1 L13 8 L17 3 L18 14Z" fill="#ffd34d" stroke="#8a6410" stroke-width="1.2"/></svg></button><div class="hb" id="hb${i}" role="progressbar" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0" aria-label="Contador tap tap de ${t.n}; solo eventos reales suman taps; cada 500 activa el turbo" title="Solo los eventos reales de TikTok suman taps; al llegar a 500 se activa el turbo"><span class="hi">❤️</span><i><b></b></i><em>0</em></div><div class="sv" id="sv${i}">${laneSVG(i,t)}</div><div class="team-total" id="teamTotal${i}" title="Interacciones totales de ${t.n}"><span>EVENTOS</span><b>0</b></div></div>`).join('');
 T.forEach((team,i)=>{const header=document.querySelector('#ln'+i+' .hd'),name=document.createElement('span');name.className='cn';name.textContent=team.n;header.insertBefore(name,header.querySelector('.pod'))});
 /* Ajusta el ancho de las tortugas (--kx) para que no se deformen al cambiar el tamano del carril */
@@ -1381,6 +1387,7 @@ function win(i){
 }
 /* Nueva carrera: vuelve todo a 0 y sortea velocidades pasivas nuevas */
 function reset(){
+ const lanes=document.getElementById('lanes');if(lanes)lanes.classList.toggle('swapped');
  clearTimeout(rs);sel=0;over=false;lead=-1;S.forEach(s=>{s.p=0;s.g=0;s.l=0});
  picks.clear();lastChat.clear();recentChatPicks.clear();clearRoundCaches();newSpeeds();lastTick=performance.now();raceStartedAt=lastTick;raceEndedAt=null;
  T.forEach((t,i)=>$('#cw'+i).setAttribute('display','none'));
@@ -1943,6 +1950,10 @@ function supportTeamFor(key){
  return side;
 }
 window.resolveSupportTeamFor=supportTeamFor;
+window.resolveGiftTeamFor=key=>{
+ const user=String(key||'').trim().toLowerCase(),recent=recentChatTeam(user);
+ return recent>=0?recent:supportTeamFor(user);
+};
 (Array.isArray(HINCHAS_JSON)?HINCHAS_JSON:[]).forEach(f=>{const r=addFan(f);if(r)picks.set(r.key,r.t)});
 function fanFor(t){const l=fanPool.filter(f=>f.t===t);return l.length?l[fanTurn%l.length]:null} /* rota un usuario del JSON por ronda */
 function eggEl(u,t,cls){ /* un avatar: foto si hay, si no la inicial; los bots llevan 🤖 */
@@ -2400,15 +2411,13 @@ setInterval(()=>{
  finishForLowActivity();
 },250);
 /* SALUDO: a cada hincha real se lo saluda UNA sola vez por sesion, con una sola frase: "Saludamos al hincha de <club> <usuario>". Sin nada mas. */
-const greeted=new Set();let grLast=-1e9;
+const greeted=new Set();
 /* Voz: saludo al usuario que se une o cambia de equipo. */
 function greet(u,t,alias){
  const k=String(u).toLowerCase();if(greeted.has(k)||!T[t])return;greeted.add(k);
  const name=String(alias||'').trim()||u;
  const txt='Saludamos al hincha de '+cap(T[t].n)+', '+name;
  hype('👋',txt,'',T[t].c);
- const now=performance.now();
- if(P.vo&&!(Date.now()-(teamAnnounceAt.get(k)||0)<6000)&&now-grLast>6000&&speak('Saludamos al hincha de '+cap(T[t].n)+', '+name.replace(/[_.]+/g,' '),null,false))grLast=now;
 }
 /* Don Tortu agradece cada regalo real y anuncia su avance y turbo. Cola corta para que no se pisen las voces. */
 const giftQueue=[];let giftSpeaking=false,giftSpeechGeneration=0;
@@ -2454,17 +2463,17 @@ function perks(e){
   const greeting=club?'Saludamos al hincha destacado de '+club+', '+name:'Saludamos al hincha destacado, '+name;
   lastMvp=mv[0];
   tz(greeting+(first?' · lidera la sala':' · es el nuevo MVP'),'👑');
-  if(P.vo)speak(greeting,null,false);
  }
 }
 /* ===== VOZ EN OFF: aviso inicial y narracion de carrera ===== */
 const SS=window.speechSynthesis;
+window.clussPriorityVoiceEnabled=true;
 const voiceHasBlockedWord=text=>/demonio/i.test(String(text));
 window.TORTUWORLD_VOICE_FILTER=voiceHasBlockedWord;
 const VOICE_PRIORITY={gift:0,chat:1,other:2},voiceQueue=[];
 let activeVoiceRequest=null;
 if(P.vo===undefined)P.vo=1;
-if(P.vb===undefined)P.vb=1; /* narrador B (lector de chat): su propio boton; no se fuerza por ronda */
+P.vb=0; /* El lector paralelo queda desactivado; la cola de prioridades es la unica voz de eventos. */
 let voices=[],vT0=performance.now(),vLast=-1e9,vRound=0;const vDone=new Set();
 const loadV=()=>{try{voices=SS.getVoices()||[]}catch(e){}};
 if(SS){loadV();SS.onvoiceschanged=loadV}
@@ -2558,6 +2567,7 @@ function drainVoiceQueue(){
 setInterval(drainVoiceQueue,200);
 /* Voz del relator: regalos, comentarios y otras narraciones respetan su prioridad. */
 function speak(text,sub,force,team,onDone,type='other'){
+ if(window.clussPriorityVoiceEnabled)return false;
  if(!SS||(team==='chat'?!P.vb:!P.vo))return false;
  try{
   const chat=team==='chat';
@@ -2640,8 +2650,6 @@ window.setDonTortuEnabled=setDonTortuEnabled;
 const _say=say;
 say=function(t){
  _say(t);if(P.vo)talk(1400);else{dt0.classList.remove('talk');clearTimeout(talkT)}
- if(!over&&P.vo&&/toma la delantera/.test(t)&&performance.now()-vLast>8000)
-  speak(t.replace(/\s*\+\d+/,'').replace(/[A-ZÁÉÍÓÚÑ]{3,}/g,w=>w[0]+w.slice(1).toLowerCase()),null,false);
 };
 const VF=['¡Recta final! Todo se decide ahora. ¡Vamos, tortugas!','¡Llegando a la meta! ¡Qué emoción, esto está parejísimo!'];
 const VW=['¡Ganó {n}! Gracias por jugar y alentar. En unos segundos arranca otra ronda, ¡te esperamos!','¡Tenemos campeón: {n}! Gracias por estar. Ya viene una nueva carrera.'];
@@ -2651,12 +2659,12 @@ queueNarratorIntroductions();
 /* Voz: frase del relator cuando gana el equipo i (o campeon del torneo). */
 function voWin(i){const n=T[i].n[0]+T[i].n.slice(1).toLowerCase();vDone.add('final');speak(P.wins[i]>=3?'¡Tenemos campeón del torneo! '+n+' se lleva las tres copas. ¡Felicitaciones y gracias por jugar!':VW[vRound%VW.length].replace('{n}',n),null,true)}
 setInterval(()=>{
- if(over)return;const now=performance.now();
+ if(window.clussPriorityVoiceEnabled||over)return;const now=performance.now();
  if(sprint&&!vDone.has('final')){vDone.add('final');speak(VF[vRound%VF.length],'¡Recta final!',true);return}
 },500);
 const PROGRESS_MILESTONES=[15,30,45,60,75,90],cap=n=>n[0]+n.slice(1).toLowerCase();
 setInterval(()=>{
- if(over||vDone.has('final'))return;
+ if(window.clussPriorityVoiceEnabled||over||vDone.has('final'))return;
  for(let team=0;team<S.length;team++){
   for(const percent of PROGRESS_MILESTONES){
    const key='progress-'+team+'-'+percent;
@@ -2687,6 +2695,7 @@ const ALT={
  juntos:[(a,b)=>'¡Vamos '+a+' y '+b+'! ¡Qué carrera tan linda!',(a,b)=>'¡Fuerza '+a+'! ¡Fuerza '+b+'! ¡Los dos a darlo todo!',(a,b)=>'¡Aliento para '+a+' y para '+b+'! ¡Que gane la mejor tortuga!']
 };
 setInterval(()=>{
+ if(window.clussPriorityVoiceEnabled)return;
  const now=performance.now();
  if(alRound!==vRound){alRound=vRound;alLast=now;alK=0}
  if(over||sprint||vDone.has('final')||S.length<2)return;
@@ -3666,6 +3675,7 @@ const esc=value=>String(value==null?'':value).replace(/[&<>"']/g,char=>({'&':'&a
 const key=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
 const https=value=>/^https:\/\//i.test(String(value||''));
 const rose={key:'rose',name:'Rosa',value:1,enabled:true,aliases:['rose','rosa','rosita'],emoji:'🌹',imageUrl:''};
+const RATE_EVENT_TYPES=new Set(['member','chat','gift','like','follow','share']);
 let catalog=[rose],race={id:'',last:null,users:new Map()},seen=new Set(),total=0,turboUntil=0,giftTurboMs=15000,rotationSeconds=0,rotationTimer=0,idleKey='rose',showGiftDetails=true,eventsThisMinute=0;
 const eventRate=document.querySelector('#eventRate');
 const tiers=[{min:10,label:'👑 LEYENDA'},{min:3,label:'🔥 FANÁTICO'},{min:1,label:'🎖️ HONOR'}];
@@ -3774,7 +3784,7 @@ const HB=window.HonorBoard={
 counter.addEventListener('click',()=>HB.onGift({type:'gift',username:'prueba',giftName:'Rose',giftId:'rose',activityCount:1,eventId:`emulated-${Date.now()}`,emulated:true}));
 const previousEntry=handleLiveEntry;
 handleLiveEntry=function(entry){const result=previousEntry.apply(this,arguments);
- if(entry&&!entry.bot&&!entry.emulated&&['member','chat','gift','like','follow','share'].includes(entry.type))HB.setEventsPerMinute(eventsThisMinute+1);
+ if(entry&&!entry.bot&&!entry.emulated&&RATE_EVENT_TYPES.has(entry.type))HB.setEventsPerMinute(eventsThisMinute+1);
  if(entry&&!entry.bot&&entry.type==='gift')HB.onGift(entry);return result};
 setInterval(()=>HB.setEventsPerMinute(0),60000);
 const previousReset=reset;
@@ -5403,14 +5413,20 @@ const DEF_LEVELS=[
 ];
 let TB={trackMeters:100,repeatCooldownMinutes:1,enabledLevels:{},levels:[
  DEF_LEVELS[0],DEF_LEVELS[1],
- {id:'gift',priority:0,ttlMs:0,max:0,interrupt:true,say:'Gracias {user} por el regalo'},
+ {id:'gift',priority:0,ttlMs:0,max:0,interrupt:true,say:'Gracias {user} por enviar {count} {gift}. Tu equipo {team} entra en modo turbo y tu foto queda en el cuadro de honor.'},
  {id:'chat',priority:2,ttlMs:20000,max:3,maxChars:140,say:'{user} dice: {text}'},
  {id:'action',priority:3,ttlMs:12000,max:3,coalesceMs:8000,say:{like:'{user}, gracias por tus likes',follow:'Gracias {user} por seguirnos',share:'Gracias {user} por compartir'}},
  {id:'match',priority:4,ttlMs:8000,max:1,everyMs:14000,quietMs:3500,say:{start:'Arranca la carrera. La meta está a {track} metros.',normal:'{lead} va a {leadM} metros y {other} a {otherM}. Faltan {left} metros para la meta.',final:'¡{lead} está a {left} metros de la meta!',win:'¡Gana {lead}! Llegó a los {track} metros.'}}]};
 fetch('/api/voice-priority').then(r=>r.ok?r.json():null).then(j=>{if(j&&Array.isArray(j.levels)&&j.levels.length)TB={...TB,...j};if(j&&typeof j.donTortuEnabled==='boolean')window.setDonTortuEnabled(j.donTortuEnabled);ensureLevels();TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);refreshPhraseExpiry()}).catch(()=>{});
 function ensureLevels(){DEF_LEVELS.forEach(d=>{if(!TB.levels.some(l=>l.id===d.id))TB.levels.push(d)})}
 ensureLevels();
-function normalizeEnabledLevels(source){return Object.fromEntries(TB.levels.map(level=>[level.id,!(source&&source[level.id]===false)]))}
+function normalizeEnabledLevels(source){
+ const enabledByDefault=new Set(['gift','move','chat','match']);
+ return Object.fromEntries(TB.levels.map(level=>[
+  level.id,
+  typeof(source&&source[level.id])==='boolean'?source[level.id]:enabledByDefault.has(level.id)
+ ]));
+}
 TB.enabledLevels=normalizeEnabledLevels(TB.enabledLevels);
 const LV=id=>TB.levels.find(l=>l.id===id)||{};
 const levelEnabled=id=>!TB.enabledLevels||TB.enabledLevels[id]!==false;
@@ -5488,6 +5504,7 @@ function pump(){
  const safeT=setTimeout(()=>{try{SS.cancel()}catch(e){}end()},14000);
  try{const u=new SpeechSynthesisUtterance(it.text);u._cp=true;u.lang='es-ES';u.rate=1.08;u.pitch=1.08;u.volume=1;
   const v=pickVoice();if(v){u.voice=v;u.lang=v.lang}
+  safe(()=>talk(it.text.length*75+600));
   u.onend=end;u.onerror=end;_sp(u)}catch(e){end()}
 }
 if(SS.addEventListener)SS.addEventListener('voiceschanged',()=>{});
@@ -5508,7 +5525,14 @@ function onEvent(e){
  const uk=String(e.username||'').trim().toLowerCase(),now0=Date.now();
  if(t==='gift'){
   if(Number(e.giftDiamonds)>=1)safe(()=>window.fx&&window.fx.FA&&window.fx.FA.p('cheer'));
-  return say('gift',fill(LV('gift').say,{user}));
+  const teamIndex=safe(()=>window.resolveGiftTeamFor(uk));
+  const team=typeof teamIndex==='number'&&teamIndex>=0?nm(teamIndex):'';
+  const gift=String(e.giftName||e.gift_name||e.gift||'regalo').trim();
+  const count=Math.max(1,Math.floor(Number(e.activityCount)||1));
+  const template=EN()
+   ?'Thank you {user} for sending {count} {gift}. Your team {team} is entering turbo mode, and your photo is in the Hall of Fame.'
+   :LV('gift').say;
+  return say('gift',fill(template,{user,gift,count,team}));
  }
  if(t==='member'){ /* saludo a cada hincha que ingresa (una vez; vuelve a saludar si reingresa pasados 10 min) */
   if(uk){if(now0-(welcomedAt.get(uk)||0)<600000)return;welcomedAt.set(uk,now0)}
@@ -5804,5 +5828,8 @@ if(window.ResizeObserver){
 schedule();
 })();
 </script>
+<style id="alternating-race-sides">
+#lanes.swapped{flex-direction:row-reverse}
+</style>
 </body>
 </html>

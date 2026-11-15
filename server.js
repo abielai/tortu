@@ -773,7 +773,11 @@ function voiceConfigView(value) {
     donTortuEnabled: value?.donTortuEnabled !== false,
     enabledLevels: Object.fromEntries(voicePriority.levels.map(level => [
       level.id,
-      typeof storedLevels[level.id] === 'boolean' ? storedLevels[level.id] : true
+      ['welcome', 'action'].includes(level.id)
+        ? false
+        : typeof storedLevels[level.id] === 'boolean'
+        ? storedLevels[level.id]
+        : true
     ]))
   };
 }

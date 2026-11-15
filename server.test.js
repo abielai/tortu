@@ -82,6 +82,7 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
     },
     liveEventMonitor: { receive(event) { return event; }, completeRound() { return 'completed'; } },
     I18N: { en: false },
+    resolveGiftTeamFor: username => username === 'ana' ? 0 : 1,
     setDonTortuEnabled: enabled => { donTortuEnabled = enabled; },
     addEventListener: (type, listener) => listeners.set(type, listener)
   };
@@ -104,15 +105,15 @@ test('voice phrase cache blocks normalized repeats until the configured minute e
     addEventListener() {}
   });
   runInNewContext(script, sandbox);
-  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftDiamonds: 1 });
-  window.liveEventMonitor.receive({ type: 'gift', displayName: 'aná', username: 'ana', giftDiamonds: 1 });
-  assert.deepEqual(spoken, ['Gracias Ana por el regalo']);
+  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
+  window.liveEventMonitor.receive({ type: 'gift', displayName: 'aná', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
+  assert.deepEqual(spoken, ['Gracias Ana por enviar 1 Rosa. Tu equipo Olimpia entra en modo turbo y tu foto queda en el cuadro de honor.']);
   assert.equal(window.getVoiceMonitorState().recentPhrases.length, 1);
   now += 59999;
-  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftDiamonds: 1 });
+  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
   assert.equal(window.getVoiceMonitorState().queue.length, 0);
   now += 1;
-  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftDiamonds: 1 });
+  window.liveEventMonitor.receive({ type: 'gift', displayName: 'Ana', username: 'ana', giftName: 'Rosa', activityCount: 1, giftDiamonds: 1 });
   assert.equal(window.getVoiceMonitorState().queue.length, 1);
   listeners.get('voice-config-update')({ detail: { repeatCooldownMinutes: 2, donTortuEnabled: false } });
   assert.equal(window.getVoiceMonitorState().phraseCooldownMs, 120000);
@@ -154,6 +155,7 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
       },
       liveEventMonitor: { receive(event) { return event; } },
       I18N: { en: false },
+      resolveGiftTeamFor: () => 1,
       addEventListener() {}
     },
     T: [{ id: 'ol', n: 'Olimpia' }, { id: 'cp', n: 'Cerro' }],
@@ -210,11 +212,12 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
 
     const gift = normalizeTikTokEvent('gift', {
       giftName: 'Rose',
+      activityCount: 1,
       diamondCount: 1,
       user: { uniqueId: `${id}-gift`, nickname: 'Gift Fan' }
     });
     browser.window.liveEventMonitor.receive(gift);
-    assert.equal(spoken[0]?.text, 'Gracias Gift Fan por el regalo');
+    assert.equal(spoken[0]?.text, 'Gracias Gift Fan por enviar 1 Rose. Tu equipo Cerro entra en modo turbo y tu foto queda en el cuadro de honor.');
 
     await emit('chat', {
       comment: 'Cerro vamos todos',
@@ -229,14 +232,12 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
 
     assert.deepEqual(
       JSON.parse(JSON.stringify(browser.window.getVoiceMonitorState().queue.map(item => [item.id, item.priority]))),
-      [['move', 1], ['chat', 2], ['welcome', 3], ['action', 3]]
+      [['move', 1], ['chat', 2]]
     );
 
     for (const [index, expected] of [
       [1, 'Chat Fan se une a Cerro'],
-      [2, 'Chat Fan dice: Cerro vamos todos'],
-      [3, 'Bienvenido Member Fan'],
-      [4, 'Gracias Follow Fan por seguirnos']
+      [2, 'Chat Fan dice: Cerro vamos todos']
     ]) {
       spoken[index - 1].onend();
       await new Promise(resolve => setTimeout(resolve, 275));
@@ -250,6 +251,9 @@ test('TikTok events flow through SSE and the voice queue in business-priority or
         .map(level => [level.id, level.priority]))),
       [['gift', 0], ['move', 1], ['chat', 2], ['welcome', 3], ['action', 3], ['match', 4]]
     );
+    const enabled = Object.fromEntries(browser.window.getVoiceMonitorState().levels.map(level => [level.id, level.enabled]));
+    assert.equal(enabled.welcome, false);
+    assert.equal(enabled.action, false);
   } finally {
     controller.abort();
     if (reader) void reader.cancel().catch(() => {});
@@ -816,7 +820,8 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     assert.equal(defaultConfig.repeatCooldownMinutes, 1);
     assert.equal(defaultConfig.donTortuEnabled, true);
     assert.ok(Object.values(defaultConfig.enabledLevels).length > 0);
-    assert.ok(Object.values(defaultConfig.enabledLevels).every(enabled => enabled === true));
+    for (const level of ['gift', 'move', 'chat', 'match']) assert.equal(defaultConfig.enabledLevels[level], true);
+    for (const level of ['welcome', 'action']) assert.equal(defaultConfig.enabledLevels[level], false);
     const deniedOverlayToggle = await fetch(`${baseUrl}/api/overlay/don-tortu`, {
       method: 'POST',
       headers: { Origin: baseUrl }
@@ -861,7 +866,11 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     const saved = await fetch(`${baseUrl}/api/admin/voice-config`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ repeatCooldownMinutes: 5, donTortuEnabled: false, enabledLevels: { gift: false, chat: false } })
+      body: JSON.stringify({
+        repeatCooldownMinutes: 5,
+        donTortuEnabled: false,
+        enabledLevels: { gift: false, chat: false, welcome: true, action: true }
+      })
     });
     assert.equal(saved.status, 200);
     const savedConfig = await saved.json();
@@ -870,6 +879,8 @@ test('voice repeat cooldown is configurable in minutes and reaches the overlay A
     assert.equal(savedConfig.enabledLevels.gift, false);
     assert.equal(savedConfig.enabledLevels.chat, false);
     assert.equal(savedConfig.enabledLevels.move, true);
+    assert.equal(savedConfig.enabledLevels.welcome, false);
+    assert.equal(savedConfig.enabledLevels.action, false);
     const enabled = await fetch(`${baseUrl}/api/admin/voice-config`, {
       method: 'POST',
       headers,
@@ -1165,6 +1176,8 @@ test('HonorBoard displays real gifts, deduplicates entries, and keeps test gifts
   assert.equal(eventRate.textContent, '1001');
   context.handleLiveEntry({ type: 'chat', username: 'fan' });
   assert.equal(eventRate.textContent, '1002');
+  context.handleLiveEntry({ type: 'member' });
+  assert.equal(eventRate.textContent, '1003', 'real member joins count as one live event even without a username');
   context.window.HonorBoard.onGift({ type: 'gift', username: 'ana', giftName: 'Rose', eventId: 'rate-gift', profilePictureUrl: 'https://example.test/ana.jpg' });
   context.window.HonorBoard.setEventsPerMinute(0);
   assert.match(honorMarkup, /@ana/);
@@ -2001,12 +2014,30 @@ test('service worker caches only the shell and bypasses live API responses', () 
 test('voice-priority response matches the overlay speech template contract', () => {
   assert.equal(voicePriority.repeatCooldownMinutes, 1);
   const levels = Object.fromEntries(voicePriority.levels.map(level => [level.id, level]));
+  assert.match(levels.gift.say, /\{team\}/);
+  assert.match(levels.gift.say, /cuadro de honor/);
   assert.deepEqual(Object.keys(levels.move.say).sort(), ['from', 'to']);
   assert.match(levels.chat.say, /\{text\}/);
   assert.deepEqual(Object.keys(levels.action.say).sort(), ['follow', 'like', 'share']);
   assert.deepEqual(Object.keys(levels.match.say).sort(), ['final', 'normal', 'start', 'win']);
+  assert.match(levels.match.say.normal, /\{leadM\}/);
+  assert.match(levels.match.say.normal, /\{otherM\}/);
   assert.match(levels.welcome.say, /\{user\}/);
   assert.deepEqual(['gift', 'move', 'chat', 'welcome', 'action', 'match'].map(id => levels[id].priority), [0, 1, 2, 3, 3, 4]);
   assert.equal(levels.gift.ttlMs, 0);
   assert.equal(levels.gift.max, 0);
+});
+
+test('race lanes alternate sides and mark each ten-meter interval', () => {
+  const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
+  const laneSvg = html.match(/function laneSVG\(i,t\)\{[\s\S]*?\n\}/)?.[0];
+  assert.ok(laneSvg);
+  const markup = runInNewContext(`(${laneSvg})(0,{id:'ol',n:'Olimpia'})`, {
+    tournamentItem: () => ({ emoji: '🏳️' }),
+    flag: () => ''
+  });
+  const meters = Array.from(markup.matchAll(/class="distance-tick" data-meter="(\d+)"/g), match => Number(match[1]));
+  assert.deepEqual(meters, [10, 20, 30, 40, 50, 60, 70, 80, 90]);
+  assert.match(html, /classList\.toggle\('swapped'\)/);
+  assert.match(html, /#lanes\.swapped\{flex-direction:row-reverse\}/);
 });
