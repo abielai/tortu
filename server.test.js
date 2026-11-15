@@ -11,8 +11,9 @@ test('live event counters count events, not weighted interaction points', () => 
   const browser = { window: {} };
   runInNewContext(readFileSync(new URL('./public/activity-policy.js', import.meta.url), 'utf8'), browser);
   const policy = browser.window.TORTUWORLD_ACTIVITY_POLICY;
-  assert.equal(policy.HEART_MAX, 60);
+  assert.equal(policy.HEART_MAX, 50);
   assert.equal(policy.HEART_START, 50);
+  assert.equal(policy.HEART_STEP, 0);
   assert.equal(policy.eventCountDelta('chat', 8), 1);
   assert.equal(policy.eventCountDelta('follow', 8), 1);
   assert.equal(policy.eventCountDelta('share', 8), 1);
@@ -23,20 +24,20 @@ test('live event counters count events, not weighted interaction points', () => 
   assert.equal(policy.statEventDelta('gift', 3), 30);
 });
 
-test('automatic tap limit stops at 60 while manual adjustments can exceed it', () => {
+test('tap limit stays fixed at 50 despite track progress and manual adjustment commands', () => {
   const html = readFileSync(new URL('./overlay.html', import.meta.url), 'utf8');
   const baseSource = html.match(/const heartBase=\(\)=>[^\n]+/)?.[0];
   const syncSource = html.match(/function syncHeartLimit\(\)\{[\s\S]*?\n\}/)?.[0];
-  const manualSource = html.match(/function setTurboLimit\(d\)\{[\s\S]*?\n\}/)?.[0];
+  const manualSource = html.match(/function setTurboLimit\(\)\{[\s\S]*?\n\}/)?.[0];
   assert.ok(baseSource);
   assert.ok(syncSource);
   assert.ok(manualSource);
 
   const context = {};
   runInNewContext(`
-    const HEART_START=50, HEART_STEP=10, HEART_MAX=60;
+    const HEART_START=50, HEART_STEP=0, HEART_MAX=50;
     const S=[{p:100},{p:100}], T=[{},{}], heart=[0,0];
-    let HEART_N=HEART_START, heartLimitOffset=0, over=false;
+    let HEART_N=HEART_START, over=false;
     const renderHeart=()=>{}, heartAdd=()=>{}, toast=()=>{};
     ${baseSource}
     ${syncSource}
@@ -47,8 +48,8 @@ test('automatic tap limit stops at 60 while manual adjustments can exceed it', (
     globalThis.manualLimit=HEART_N;
   `, context);
 
-  assert.equal(context.automaticLimit, 60);
-  assert.equal(context.manualLimit, 70);
+  assert.equal(context.automaticLimit, 50);
+  assert.equal(context.manualLimit, 50);
 });
 
 test('idle visual advance waits 15 seconds, alternates teams at two meters per second, and resets per race', () => {

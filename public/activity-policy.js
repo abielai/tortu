@@ -22,8 +22,8 @@
   };
   var policy = {
     HEART_START: 50,
-    HEART_STEP: 10,
-    HEART_MAX: 60,
+    HEART_STEP: 0,
+    HEART_MAX: 50,
     HEART_TURBO_MS: 7000,
     GIFT_TURBO_MS: 15000,
     GIFT_TURBO_PROGRESS: 6,

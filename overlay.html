@@ -120,7 +120,7 @@
    - Frontend: pesos por evento = ingreso (member) 1, comentario 10, like 1 por cada like, seguir 3, compartir 5. Los REGALOS NO suman taps: avanzan la pista directamente. Los comentarios repetidos del mismo usuario se limitan a uno cada 8 s. (OJO: los valores de las estadisticas por VS de la regla 18 son otra cosa: miembro 1, comentario 5, like 1, seguir 3, compartir 3, regalo 10.)
   AVANCE Y TURBO
    - Backend: guarda los avances configurables del turbo; acepta valores entre 0 y 100 %. Predeterminados en codigo: turbo por regalo 6 %, turbo por taps 20 %.
-   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps empieza en 50 y sube 10 por cada 10 % de avance maximo de la pista (50 a 140). Al completarlo activa turbo 7 s; su porcentaje se configura desde el backend.
+   - Frontend: cada regalo contado da 10 % de avance directo y activa turbo 15 s por regalo. El contador de taps se mantiene fijo en 50. Al completarlo activa turbo 7 s; su porcentaje se configura desde el backend.
   ASIGNACION AL EQUIPO
    - Backend: NO decide puntajes ni ganador.
    - Frontend: los eventos de una persona van a su equipo elegido/asignado; los eventos anonimos (sin username) usan el carril seleccionado. Un regalo toma el equipo que el usuario nombro en el chat en los ultimos 60 s, si lo hay (si no, el que tiene asignado).
@@ -308,11 +308,11 @@ Las reglas marcadas (propuesto) aun no estan confirmadas por el autor. [REVISAR]
 
 3. EVENTOS REALES, CONTADOR Y TURBO
  - Contador de taps (ponderado): miembro 1, comentario 10, like 1 por me gusta, seguir 3, compartir 5. Todo evento real que no es regalo va SOLO al contador; los eventos reales no avanzan la pista directamente.
- - Limite automatico de taps: inicia en 50 y nunca supera 60 (HEART_START/HEART_MAX); los controles manuales pueden superarlo.
+ - Limite de taps fijo en 50; ni el avance de la carrera ni los controles pueden modificarlo.
  - Al completar el limite se activa el turbo del contador durante 7 s (HEART_TURBO_MS), sin salto inmediato.
  - Regalo real (independiente del contador, por cada unidad): +10% inmediato y turbo de 15 s (GIFT_TURBO_MS) cuyo avance total se configura en el servidor (6% por defecto). Se asigna al equipo mencionado por el usuario en el ultimo minuto.
  - Eventos sin equipo asignado: van al carril seleccionado. Un comentario que nombra un equipo que no corre ademas le suma 1 voto.
- - Gamificacion del limite de taps (v11, capa SOLO visual, no altera limites ni puntos; id gami-taps): marcas en 25/50/75 %, color por fase (rosa, naranja, dorado), estado CASI LLENO desde 90 %, COMBO de eventos reales seguidos (2,5 s), racha de turbos de la ronda (⚡ ×N, banner en 3, 5 y 8) y aviso 🎯 META N cuando sube el limite. Solo informa; nunca pide acciones (regla 1).
+ - Gamificacion del limite de taps (v11, capa SOLO visual, no altera limites ni puntos; id gami-taps): marcas en 25/50/75 %, color por fase (rosa, naranja, dorado), estado CASI LLENO desde 90 %, COMBO de eventos reales seguidos (2,5 s) y racha de turbos de la ronda (⚡ ×N, banner en 3, 5 y 8). Solo informa; nunca pide acciones (regla 1).
  - Dificultad: cada evento vale HARD (0.5) de lo que valia (duelo equilibrado, 4 veces mas dificil) y el avance pasivo se detiene en PASSIVE_CAP (%). El resto de la pista solo se recorre con interaccion.
 
 4. INACTIVIDAD
@@ -769,7 +769,7 @@ document.addEventListener('visibilitychange',function(){if(document.hidden)flush
    return hash%teamCount;
   }});
  }
- P.HEART_START=P.HEART_START||50;P.HEART_STEP=P.HEART_STEP||10;P.HEART_MAX=P.HEART_MAX||60;
+ P.HEART_START=50;P.HEART_STEP=0;P.HEART_MAX=50;
  P.isInteractionEvent=P.isInteractionEvent||function(t){return['chat','like','gift','follow','share'].indexOf(t)>=0};
  P.tapEventDelta=P.tapEventDelta||function(t,n){var w={member:1,chat:10,like:1,follow:3,share:5}[t]||0,c=+n;return w?w*(isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
  P.statEventDelta=P.statEventDelta||function(t,n){var w={member:1,chat:5,like:1,follow:3,share:3,gift:10}[t]||0,c=+n;return w?w*((t==='gift'||t==='like')&&isFinite(c)&&c>0?Math.max(1,Math.floor(c)):1):0};
@@ -1197,7 +1197,7 @@ const ST_VIEWS={
   return`<p><b>Estado:</b> ${stH(m.phase||'—')} · <b>Tiempo:</b> ${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')} · <b>Inactividad:</b> ${Math.floor(+m.idleSeconds||0)} s · <b>Ganador:</b> ${stH(m.winner||'—')}</p><p class="mut">${window.serverMotorSnapshot?'Snapshot retransmitido por el backend.':'Esperando retransmisión del backend; se muestra el snapshot local.'}</p>`+
    motorTeamTable(m)+'<pre>'+stH(JSON.stringify(m.stats||{},null,2))+'</pre>'},
  'turbo-equipos'(){const m=motorSnapshot(),cfg=m&&m.turbo||{},teams=m&&m.teams||[];
-  return`<p><b>Límite actual:</b> ${teams.map(t=>stH(t.name)+' '+Math.floor(+t.taps||0)+' / '+Math.floor(+t.tapLimit||0)).join(' · ')||'—'}</p><p><b>Turbo de taps:</b> ${cfg.tapProgress??'—'}% por ${cfg.tapDurationMs?Math.round(cfg.tapDurationMs/1000)+'s':'—'}</p><p class="mut">El límite crece según el avance de la carrera. Los controles existentes siguen disponibles:</p><button data-action="turbo-down">➖ Bajar límite</button> <button data-action="turbo-up">➕ Subir límite</button>`},
+  return`<p><b>Límite fijo:</b> ${teams.map(t=>stH(t.name)+' '+Math.floor(+t.taps||0)+' / 50').join(' · ')||'50 taps'}</p><p><b>Turbo de taps:</b> ${cfg.tapProgress??'—'}% por ${cfg.tapDurationMs?Math.round(cfg.tapDurationMs/1000)+'s':'—'}</p><p class="mut">El límite de taps permanece fijo en 50 durante toda la carrera.</p>`},
  'turbo-regalos'(){const m=motorSnapshot(),cfg=m&&m.turbo||{};
   return`<p><b>Avance configurado:</b> ${cfg.giftProgress??'—'}%</p><p><b>Duración configurada:</b> ${cfg.giftDurationMs?Math.round(cfg.giftDurationMs/1000)+'s':'—'}</p>${motorTeamTable(m)}`},
  usuarios(){const IC={chat:'💬',like:'❤️',follow:'➕',share:'↗️',member:'👋'},NM={chat:'comentó',like:'likes',follow:'siguió',share:'compartió',member:'se unió'};
@@ -1865,11 +1865,10 @@ T.forEach((t,i)=>$('#sv'+i).insertAdjacentHTML('beforeend','<div class="nest" id
 
  fanPool    = usuarios del JSON (HINCHAS_JSON + /api/recent-users): se muestran al frente SOLO mientras el equipo no tenga eventos reales. */
 const HINCHAS_JSON=[ /* editar aqui. Formato: {username:'maria_ol', avatar:'https://...jpg', team:'ol'}  (team opcional: 'ol' o 'cp'; avatar debe ser https) */ ];
-/* ===== CONTADOR TAP TAP: inicia en 50 y sube 10 por cada 10% de avance, hasta 60 ===== */
-/* El máximo automático es 60; los controles manuales pueden superarlo. */
+/* ===== CONTADOR TAP TAP: el limite permanece fijo en 50 ===== */
 const HEART_START=TAP_POLICY.HEART_START,HEART_STEP=TAP_POLICY.HEART_STEP,HEART_MAX=TAP_POLICY.HEART_MAX;
-const heartBase=()=>{let mx=0;try{mx=Math.max(0,...S.map(s=>+s.p||0))}catch(e){}return Math.min(HEART_MAX,HEART_START+HEART_STEP*Math.floor(Math.min(100,mx)/10))};
-let HEART_N=HEART_START,heartLimitOffset=0;
+const heartBase=()=>HEART_START;
+let HEART_N=HEART_START;
 const heart=T.map(()=>0);
 function setLiveTurboSettings(giftProgress,tapProgress){
  if(Number.isFinite(giftProgress)&&giftProgress>=0&&giftProgress<=100){
@@ -1881,7 +1880,7 @@ function setLiveTurboSettings(giftProgress,tapProgress){
 }
 window.setLiveTurboSettings=setLiveTurboSettings;
 function syncHeartLimit(){
- const n=Math.max(10,Math.min(Number.MAX_SAFE_INTEGER,heartBase()+heartLimitOffset));
+ const n=HEART_START;
  if(n===HEART_N)return;
  const prevN=HEART_N;HEART_N=n;
  T.forEach((_,i)=>renderHeart(i));
@@ -1902,7 +1901,7 @@ function heartAdd(t,n){
  if(over||!T[t])return;
  if(n>0)tapStep(t,n);
  const previousLimit=HEART_N;
- const {remaining,activations:full}=TAP_POLICY.consumeTapCount(heart[t],n,HEART_N); /* el limite ya no sube por turbo: sube con el % de pista (syncHeartLimit) */
+ const {remaining,activations:full}=TAP_POLICY.consumeTapCount(heart[t],n,HEART_N); /* el limite permanece fijo en 50 */
  const nextLimit=HEART_N;
  heart[t]=remaining;
  if(full)HEART_N=nextLimit;
@@ -1921,15 +1920,9 @@ function heartAdd(t,n){
  }
 }
 window.recordLiveTap=(team,count)=>heartAdd(team,count);
-/* ➕ ➖ ajustan temporalmente el limite durante esta carrera. */
-function setTurboLimit(d){
- const previous=HEART_N;
- heartLimitOffset=Math.max(10-heartBase(),Math.min(Number.MAX_SAFE_INTEGER-heartBase(),heartLimitOffset+d));
- syncHeartLimit();
- const n=HEART_N;
- if(previous===n){toast('Límite de turbo: '+HEART_N+' taps ('+(d<0?'mínimo':'máximo')+')','⚡');return}
- T.forEach((_,i)=>{if(heart[i]>=HEART_N&&!over){heart[i]=HEART_N-1;heartAdd(i,1)}else renderHeart(i)});
- toast('Turbo cada '+HEART_N+' taps','⚡');
+/* Los controles antiguos permanecen como no-op para que los comandos remotos no alteren el limite fijo. */
+function setTurboLimit(){
+ toast('Límite de turbo fijo en 50 taps','⚡');
 }
 $('#bTurboUp').onclick=()=>setTurboLimit(10);
 $('#bTurboDn').onclick=()=>setTurboLimit(-10);
@@ -2189,10 +2182,10 @@ const _reset=reset;
 reset=function(){ajustesDePartida();seen.clear();known.clear();userScore.clear();recent.forEach(l=>l.length=0);fanTurn++;gs.fill(2);T.forEach((_,i)=>{heart[i]=0;renderHeart(i);$('#in'+i).style.setProperty('--s',2);renderNest(i);renderPod(i)});eventTimers.forEach(clearTimeout);eventTimers.clear();document.querySelectorAll('.fan-alerts').forEach(layer=>layer.replaceChildren());voReset();contrib.clear();us.clear();joined.clear();turbo.fill(0);turboPower.fill(0);giftTurboUntil.fill(0);giftTurboRate.fill(0);lastMvp=null;hy.hidden=true;T.forEach((_,i)=>$('#ln'+i).classList.remove('turbo'));leads=0;sprint=false;tk=0;$('#app').classList.remove('sprint');_reset();A.sfx('start');hud();logStat({type:'round-start',duel:DUELO});toast(T[0].n+'  ·  '+T[1].n,'💬')}; /* ronda nueva en las estadisticas */
 window.tortugas.reset=reset;window.tortugas.resetCopas=resetCopas;
 const _resetTurboLimit=reset;
-setInterval(()=>{try{if(!over)syncHeartLimit()}catch(e){}},250); /* sube el limite cada 10% de pista */
+setInterval(()=>{try{if(!over)syncHeartLimit()}catch(e){}},250);
 reset=function(){
  const request=++raceStartRequest,context=this,args=Array.from(arguments);
- raceReady=false;heartLimitOffset=0;HEART_N=HEART_START;matchInteractionCount=0;lastInteractionAt=Date.now();idleVisualAdvance.reset(lastInteractionAt);lowActivityFinished=false;
+ raceReady=false;HEART_N=HEART_START;matchInteractionCount=0;lastInteractionAt=Date.now();idleVisualAdvance.reset(lastInteractionAt);lowActivityFinished=false;
  const start=()=>{
   if(request!==raceStartRequest)return;
   resetTeamEventTotals();
@@ -4940,7 +4933,7 @@ window.gami={level:LV,honor:HM,voice};
 <style id="ocultar-regalos">
 #gmGift,#gmNtf{display:none!important}
 </style>
-<!-- ===== GAMIFICACION DEL LIMITE DE TAPS (v11). Capa SOLO visual: no cambia limites, puntos ni turbos. Reacciona a eventos REALES (el bot nunca) y NUNCA pide acciones al publico (regla 1). Hitos 25/50/75 %, color por fase, CASI LLENO, combo, racha de turbos y aviso cuando sube la meta. ===== -->
+<!-- ===== GAMIFICACION DEL LIMITE DE TAPS (v11). Capa SOLO visual: no cambia limites, puntos ni turbos. Reacciona a eventos REALES (el bot nunca) y NUNCA pide acciones al publico (regla 1). Hitos 25/50/75 %, color por fase, CASI LLENO, combo y racha de turbos. ===== -->
 <style id="gami-taps">
 .hb{--gt:#ff2d55}
 .hb .gt-tk{position:absolute;left:0;right:0;top:0;bottom:0;z-index:3;pointer-events:none;border-radius:7px;
@@ -5843,5 +5836,147 @@ schedule();
 <style id="right-sidebar-lowered">
 .side>#honor,.side>#copas,.side>#evs,.side>.foot,.side>#cronoRegalos{transform:none!important;margin-top:8px!important}
 </style>
+<!-- ===== REUBICACION VISUAL (solo interfaz): dos columnas (un equipo a cada lado), Don Tortu al centro entre las banderas, sin barra derecha; estadisticas, herramientas y cronometros pasan DEBAJO del tablero. No cambia rutas, eventos, claves ni la capa SRV. ===== -->
+<style id="layout-dos-columnas">
+/* sin barra derecha: .side queda en el DOM (los scripts la siguen usando) pero fuera del flujo; solo se ve Don Tortu, centrado a la altura de las banderas */
+.side{position:absolute!important;left:50%;top:12px;transform:translateX(-50%)!important;width:auto!important;min-width:0!important;height:auto!important;align-self:auto!important;gap:0!important;z-index:12;pointer-events:none}
+.side>*:not(#donTortuAvatar){display:none!important} /* honor, copas, cuadro de dialogo y rotulos ocultos */
+.side>#donTortuAvatar{width:90px!important;height:90px!important;flex:none}
+#ln0 .hd .banRos svg.fgb{transform:translateX(-22px)}
+#ln1 .hd .banRos svg.fgb{transform:translateX(22px)}
+/* barra inferior unica, pegada al borde seguro de abajo; el script de abajo le deja a las pistas el alto que queda */
+#topbar{position:absolute!important;left:12px;right:12px;bottom:6px;margin:0!important;width:auto;gap:4px;padding:4px;border:2px solid #3f2713;border-radius:10px;background:linear-gradient(#7a4e2a,#5a3a1e);box-shadow:inset 0 1px 3px rgba(0,0,0,.5);z-index:6}
+#topbar #evs{background:none;border:0;box-shadow:none;padding:0 2px}
+#topbar #cronoRegalos{margin:0!important;width:100%;justify-content:center;align-items:center}
+#topbar #cronoRegalos .race-clock-group{flex-direction:row;align-items:center;gap:6px}
+/* contador de regalos junto al cronometro */
+#cronoRegalos #giftCounter{position:static!important;flex:none;width:auto;min-width:42px;height:26px;min-height:0;padding:0 8px;border-radius:7px;pointer-events:auto}
+#cronoRegalos #giftCounter span{font-size:15px}
+/* ocultos: barra de herramientas (sus botones siguen en el DOM y responden a los comandos remotos), eventos por minuto y version */
+#topbar .foot,.event-rate,.overlay-version{display:none!important}
+/* lineas blancas de la pista: solo cada 5 metros */
+.route-guide:not([data-meter$="5"]):not([data-meter$="0"]){display:none}
+/* usuario conectado: solo la inicial, dentro de las estadisticas */
+#evs .evUser{flex:none;display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#16a34a;border:1.5px solid #fff;color:#fff;font:900 12px/1 Inter,sans-serif;text-shadow:0 1px 1px #000}
+#evs .evUser[hidden]{display:none}
+.gift-total{bottom:calc(var(--sb,44px) - 34px)}
+</style>
+<script id="layout-dos-columnas-js">
+(function(){
+ const board=document.querySelector('.board');if(!board)return;
+ const evs=document.getElementById('evs'),foot=document.querySelector('.foot'),clock=document.getElementById('cronoRegalos');
+ let bar=document.getElementById('topbar');
+ if(!bar){bar=document.createElement('div');bar.id='topbar';board.after(bar)}
+ const gift=document.getElementById('giftCounter');if(gift&&clock)clock.appendChild(gift);
+ [evs,foot,clock].forEach(el=>{if(el&&el.parentElement!==bar)bar.appendChild(el)});
+ /* Don Tortu visible salvo que la config guardada de voz lo desactive; el backend sigue mandando via setDonTortuEnabled */
+ const dt=document.getElementById('donTortuAvatar');
+ if(dt&&window.donTortuEnabled!==false&&dt.style.display==='none'){dt.removeAttribute('hidden');dt.style.display=''}
+ /* la pista ocupa exactamente el hueco entre el tablero y la barra inferior (corrige --ex despues de fit()) */
+ const root=document.documentElement;let busy=false;
+ function exacto(){if(busy)return;busy=true;try{
+  const cur=parseFloat(root.style.getPropertyValue('--ex'))||0,libre=(bar.offsetTop-8)-(board.offsetTop+board.offsetHeight);
+  if(Math.abs(libre)>=1)root.style.setProperty('--ex',Math.floor(cur+libre)+'px');
+ }finally{busy=false}}
+ /* inicial del usuario: se lee del boton de conexion (oculto) que ya pinta el codigo existente; sin usuario no se muestra nada */
+ const con=document.getElementById('connection'),ev=document.getElementById('evs');
+ if(con&&ev){const u=document.createElement('span');u.className='evUser';u.hidden=true;ev.insertBefore(u,ev.firstChild);
+  const pinta=()=>{const m=/^@(.+)/.exec((con.textContent||'').trim());if(m){u.hidden=false;u.textContent=m[1].charAt(0).toUpperCase();u.title='Usuario conectado: @'+m[1]}};
+  new MutationObserver(pinta).observe(con,{childList:true,characterData:true,subtree:true});pinta()}
+ new MutationObserver(exacto).observe(root,{attributes:true,attributeFilter:['style']});
+ addEventListener('resize',exacto);exacto();
+})();
+</script>
+<!-- ===== REGALO EN LA META (solo visual): donde decia META ahora va el avatar, usuario y regalo del ultimo regalo REAL de ese equipo (rosita si no hay). Cada regalo reemplaza al anterior y dispara 10 s de festejo. Lee los eventos reales; no suma puntos, no frena a nadie ni decide ganadores. ===== -->
+<style id="regalo-meta-css">
+.gp{position:absolute;left:50%;top:19px;transform:translateX(-50%);width:calc(100% - 16px);height:42px;z-index:7;pointer-events:none;display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:12px;background:rgba(13,6,2,.94);border:2px solid transparent;color:#fff;font-family:Inter,sans-serif;overflow:hidden}
+.gp.idle{width:auto;height:auto;padding:0;gap:0;border:0;background:none;overflow:visible;left:calc(50% + 24px);top:5.6%;transform:translateY(-50%)}
+.gp .gpr{font-size:20px;line-height:1;filter:drop-shadow(0 1px 2px #000)}
+.gp .gpr img{display:block;width:26px;height:26px;object-fit:contain}
+.gp.idle .gpr{font-size:14px}.gp.idle .gpr img{width:16px;height:16px}
+.gp:not(.idle){border-color:#ffe14d;background:linear-gradient(#3a2409,#150c03)}
+.gp .gpa{flex:none;position:relative;width:34px;height:34px;border-radius:50%;border:2px solid #ffe14d;background:#3f2713;overflow:hidden;display:grid;place-items:center;font:900 16px/1 Inter,sans-serif;color:#fff}
+.gp .gpa img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.gp.fly .gpa{visibility:hidden}
+.gp .gpa.pop{animation:gpPop .5s cubic-bezier(.2,1.5,.4,1)}
+.gp .gpt{min-width:0;display:flex;flex-direction:column;gap:1px;flex:1}
+.gp .gpn,.gp .gpg{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gp .gpn{font:900 12px/1.1 Inter,sans-serif;text-shadow:0 1px 2px #000}
+.gp .gpg{font:800 10px/1.1 Inter,sans-serif;color:#ffe14d}
+.gp.fx{animation:gpGlow .7s ease-in-out infinite alternate}
+.lane.gfx .sv{animation:gfxLane .8s ease-in-out infinite alternate}
+.gfly{position:absolute;left:0;top:0;z-index:9;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:2px solid #fff;background:#3f2713;overflow:hidden;display:grid;place-items:center;font:900 14px/1 Inter,sans-serif;color:#fff;pointer-events:none;box-shadow:0 0 12px 3px #ffd566}
+.gfly img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.gthanks{position:absolute;left:50%;top:38%;z-index:10;transform:translate(-50%,-50%);max-width:94%;padding:6px 10px;border-radius:14px;border:3px solid #ffe14d;background:linear-gradient(#ffe9a8,#ffc83a);color:#3a2409;font:900 15px/1.15 Inter,sans-serif;text-align:center;box-shadow:0 0 18px 5px #ffd566;pointer-events:none;animation:gThx 3.2s ease-out forwards}
+.gthanks small{display:block;font:800 11px/1.2 Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gconf{position:absolute;top:-8%;z-index:8;pointer-events:none;font-size:16px;animation:gConf var(--d,3s) linear var(--w,0s) forwards;opacity:0}
+/* META llamativa: dorada, grande, con brillo y pulso */
+.sv>svg>text[text-anchor="middle"]{font-size:13px!important;font-weight:900!important;letter-spacing:2px;fill:#ffe14d!important;stroke:#3a1d00;stroke-width:2.2px;paint-order:stroke;transform-box:fill-box;transform-origin:50% 50%;filter:drop-shadow(0 0 4px #ffd566);animation:metaPulse 1.1s ease-in-out infinite alternate,metaShine 2.2s linear infinite}
+#sv0 .gp.idle{left:15%}
+#sv1 .gp.idle{left:85%}
+@keyframes metaPulse{from{transform:scale(1)}to{transform:scale(1.18)}}
+@keyframes metaShine{0%,100%{fill:#ffe14d;filter:drop-shadow(0 0 3px #ffd566)}35%{fill:#fff;filter:drop-shadow(0 0 8px #fff)}70%{fill:#ff9a3d;filter:drop-shadow(0 0 7px #ff7a1a)}}
+@media (prefers-reduced-motion:reduce){.sv>svg>text[text-anchor="middle"]{animation:none}}
+@keyframes gpPop{from{transform:scale(0)}60%{transform:scale(1.35)}}
+@keyframes gpGlow{to{box-shadow:0 0 14px 4px #ffd566;transform:translateX(-50%) scale(1.04)}}
+@keyframes gfxLane{to{box-shadow:inset 0 0 0 1px #3f2713,0 0 14px 3px #ffd566}}
+@keyframes gThx{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}22%{transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-70%) scale(1)}}
+@keyframes gConf{0%{opacity:0;transform:translateY(0) rotate(0)}10%{opacity:1}100%{opacity:.9;transform:translateY(105vh) rotate(540deg)}}
+@media (prefers-reduced-motion:reduce){.gp.fx,.lane.gfx .sv,.gthanks,.gconf,.gp .gpa.pop{animation:none}.gconf{display:none}}
+</style>
+<style id="notification-layer">
+#event-alerts,#toast,#hype,.ev,.gthanks{z-index:13!important}
+</style>
+<script id="regalo-meta-js">
+(function(){
+ 'use strict';
+ const lanes=document.getElementById('lanes');if(!lanes)return;
+ const DUR=10000,reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+ const timers={},raf={};
+ const https=v=>/^https:\/\//i.test(String(v||''));
+ const pickAvatar=e=>[e.profilePictureUrl,e.profilePicture,e.avatarUrl,e.avatar,e.userImage,e.imageUrl].find(https)||'';
+ const giftOf=e=>String(e.giftName||e.gift_name||e.gift||e.giftId||'Regalo');
+/* regalo en reposo: el mismo catalogo que ya consume Honor (GET /api/gifts/catalog y evento gift-config); cambia en cada carrera. Sin catalogo queda la rosita */
+ const ROSE={key:'rose',name:'Rosa',emoji:'🌹',imageUrl:''};let cat=[ROSE],gi=0;
+ const nk=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
+ function idleNode(){const c=cat[gi]||ROSE,sp=document.createElement('span');sp.className='gpr';sp.setAttribute('aria-hidden','true');sp.title=c.name;
+  if(c.imageUrl){const im=new Image();im.referrerPolicy='no-referrer';im.alt='';im.onerror=()=>{sp.textContent=c.emoji};im.src=c.imageUrl;sp.appendChild(im)}else sp.textContent=c.emoji;return sp}
+ function repintaIdle(){[0,1].forEach(i=>{const sv=document.getElementById('sv'+i),g=sv&&sv.querySelector('.gp.idle');if(g){g.textContent='';g.appendChild(idleNode())}})}
+ function setCat(v){try{const src=Array.isArray(v&&v.catalog)?v.catalog:Array.isArray(v)?v:[];
+  const n=src.filter(x=>x&&typeof x.key==='string'&&x.enabled!==false).map(x=>({key:nk(x.key),name:String(x.name||x.key),emoji:x.emoji||x.icon||'🎁',imageUrl:https(x.imageUrl||x.avatarUrl)?(x.imageUrl||x.avatarUrl):''})).filter(x=>x.key);
+  cat=n.length?n:[ROSE];gi=Math.min(gi,cat.length-1);repintaIdle()}catch(e){console.error(e)}}
+ try{const c=SRV.get('cluss.gifts',null);if(c)setCat(c)}catch(e){}
+ fetch('/api/gifts/catalog',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{if(j)setCat(j)}).catch(()=>{});
+ addEventListener('gift-config-update',e=>setCat(e.detail));
+ addEventListener('honor:race-start',()=>{gi=(gi+1)%cat.length;[0,1].forEach(idle)});
+ function panel(i){const sv=document.getElementById('sv'+i);if(!sv)return null;let g=sv.querySelector('.gp');
+  if(!g){g=document.createElement('div');g.className='gp idle';g.setAttribute('aria-live','polite');g.appendChild(idleNode());sv.appendChild(g)}return g}
+ function avatarEl(cls,url,name){const d=document.createElement('div');d.className=cls;d.textContent=(String(name||'?').charAt(0)||'?').toUpperCase();
+  if(url){const im=new Image();im.referrerPolicy='no-referrer';im.alt='';im.onload=()=>{d.textContent='';d.appendChild(im)};im.src=url}return d}
+ function idle(i){const g=panel(i);if(!g)return;stop(i);g.className='gp idle';g.textContent='';g.appendChild(idleNode())}
+ function stop(i){clearTimeout(timers[i]);cancelAnimationFrame(raf[i]);const sv=document.getElementById('sv'+i),ln=document.getElementById('ln'+i);
+  if(sv)sv.querySelectorAll('.gfly,.gthanks,.gconf').forEach(n=>n.remove());if(ln)ln.classList.remove('gfx');const g=sv&&sv.querySelector('.gp');if(g)g.classList.remove('fx','fly')}
+ function celebrate(i,e){const sv=document.getElementById('sv'+i),ln=document.getElementById('ln'+i),g=panel(i);if(!sv||!g)return;
+  stop(i);const user=String(e.username||'').replace(/^@+/,''),gift=giftOf(e),url=pickAvatar(e);
+  g.className='gp';g.innerHTML='';const av=avatarEl('gpa',url,user),t=document.createElement('div'),n=document.createElement('div'),gg=document.createElement('div');
+  t.className='gpt';n.className='gpn';n.textContent='@'+user;gg.className='gpg';gg.textContent='🎁 '+gift;t.append(n,gg);g.append(av,t);
+  const thx=document.createElement('div');thx.className='gthanks';thx.textContent='¡GRACIAS @'+user+'!';const sm=document.createElement('small');sm.textContent='🎁 '+gift;thx.appendChild(sm);
+  if(reduce){sv.appendChild(thx);timers[i]=setTimeout(()=>thx.remove(),DUR);return}
+  g.classList.add('fx','fly');ln.classList.add('gfx');sv.appendChild(thx);
+  for(let k=0;k<26;k++){const c=document.createElement('span');c.className='gconf';c.textContent=['🎉','⭐','🎁','✨','🌹','💛'][k%6];c.style.left=(4+Math.random()*92)+'%';c.style.setProperty('--d',(2.4+Math.random()*1.8)+'s');c.style.setProperty('--w',(Math.random()*(DUR/1000-4.5))+'s');sv.appendChild(c)}
+  const fly=avatarEl('gfly',url,user);sv.appendChild(fly);const t0=performance.now();
+  (function step(now){const u=Math.min(1,(now-t0)/DUR),w=sv.clientWidth,h=sv.clientHeight,e2=u*u*(3-2*u),R=(w*.32)*(1-e2*.85),a=u*Math.PI*2*3;
+   const cy=h*.85+(g.offsetTop+g.offsetHeight/2-h*.85)*e2;fly.style.transform='translate('+(w/2+R*Math.cos(a))+'px,'+(cy+R*.55*Math.sin(a))+'px)';
+   if(u<1)raf[i]=requestAnimationFrame(step);else{fly.remove();g.classList.remove('fly');av.classList.add('pop')}})(t0);
+  timers[i]=setTimeout(()=>{g.classList.remove('fx');ln.classList.remove('gfx');sv.querySelectorAll('.gconf,.gthanks').forEach(x=>x.remove())},DUR+300)}
+ /* regalos REALES: se toma el equipo que ya resolvio el motor al llamar push(); no se inventa ni se simula nada */
+ let pending=null;
+ if(typeof handleLiveEntry==='function'){const hle=handleLiveEntry;handleLiveEntry=function(e){pending=e&&e.type==='gift'&&!e.bot&&e.username?e:null;try{return hle.apply(this,arguments)}finally{pending=null}}}
+ if(typeof push==='function'){const pu=push;push=function(i,type){const r=pu.apply(this,arguments);if(type==='gift'&&pending&&i>=0){try{celebrate(i,pending)}catch(x){console.error(x)}}return r}}
+ if(typeof reset==='function'){const rs=reset;reset=function(){const r=rs.apply(this,arguments);[0,1].forEach(idle);return r}}
+ function asegura(){[0,1].forEach(i=>{const sv=document.getElementById('sv'+i);if(sv&&!sv.querySelector('.gp'))panel(i)})}
+ new MutationObserver(asegura).observe(lanes,{childList:true});asegura();
+})();
+</script>
 </body>
 </html>
